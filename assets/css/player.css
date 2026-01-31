@@ -1,0 +1,1221 @@
+/* MBR Live Radio Player Styles */
+
+.mbr-radio-player {
+    max-width: 600px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mbr-gradient-color-1: #667eea;
+    --mbr-gradient-color-2: #764ba2;
+}
+
+.mbr-player-inner {
+    background: linear-gradient(135deg, var(--mbr-gradient-color-1) 0%, var(--mbr-gradient-color-2) 100%);
+    border-radius: 16px;
+    padding: 24px;
+    padding-bottom: 48px;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    display: flex !important;
+    flex-wrap: wrap !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+    min-height: 140px;
+}
+
+/* Pop-out Button */
+.mbr-popout-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    backdrop-filter: blur(10px);
+    padding: 0;
+}
+
+.mbr-popout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.mbr-popout-btn:active {
+    transform: scale(0.95);
+}
+
+.mbr-popout-btn svg {
+    opacity: 1;
+    fill: white;
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
+.mbr-player-inner::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+}
+
+/* Artwork */
+.mbr-player-artwork {
+    flex-shrink: 0 !important;
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.mbr-player-artwork img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    display: block !important;
+}
+
+/* Info */
+.mbr-player-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+    position: relative;
+    z-index: 1;
+}
+
+.mbr-player-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mbr-player-status {
+    margin: 0;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px;
+}
+
+.mbr-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+.mbr-radio-player.playing .mbr-status-dot {
+    background: #4ade80;
+    box-shadow: 0 0 10px #4ade80;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Controls */
+.mbr-player-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Play Button */
+.mbr-play-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fff !important;
+    border: none;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.mbr-play-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mbr-play-btn:active {
+    transform: scale(0.95);
+}
+
+.mbr-play-btn .mbr-icon {
+    width: 32px !important;
+    height: 32px !important;
+    color: #667eea !important;
+    transition: opacity 0.2s ease;
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+.mbr-play-btn .mbr-icon path {
+    fill: #667eea !important;
+}
+
+/* Default state - show play, hide pause */
+.mbr-play-btn .mbr-icon-play {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.mbr-play-btn .mbr-icon-pause {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    display: none !important;
+}
+
+/* Playing state - hide play, show pause */
+.mbr-radio-player.playing .mbr-play-btn .mbr-icon-play {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    display: none !important;
+}
+
+.mbr-radio-player.playing .mbr-play-btn .mbr-icon-pause {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    display: block !important;
+}
+
+/* Loading state - hide both icons */
+.mbr-play-btn .mbr-loading-spinner {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    display: none !important;
+}
+
+.mbr-radio-player.loading .mbr-play-btn .mbr-icon-play,
+.mbr-radio-player.loading .mbr-play-btn .mbr-icon-pause {
+    opacity: 0 !important;
+    display: none !important;
+}
+
+.mbr-radio-player.loading .mbr-play-btn .mbr-loading-spinner {
+    opacity: 1 !important;
+    display: block !important;
+}
+
+/* Loading Spinner */
+.mbr-loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(102, 126, 234, 0.2);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Volume Control */
+.mbr-volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mbr-volume-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.mbr-volume-btn:hover {
+    background: #fff !important;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.mbr-volume-btn .mbr-icon {
+    width: 32px !important;
+    height: 32px !important;
+    color: #5b21b6 !important;
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+.mbr-volume-btn .mbr-icon path {
+    fill: #5b21b6 !important;
+}
+
+.mbr-volume-btn .mbr-icon-volume-muted {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.mbr-radio-player.muted .mbr-volume-btn .mbr-icon-volume-high {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.mbr-radio-player.muted .mbr-volume-btn .mbr-icon-volume-muted {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.mbr-radio-player.muted .mbr-volume-btn .mbr-icon path {
+    fill: #f87171 !important;
+}
+
+/* Volume Slider */
+.mbr-volume-slider {
+    width: 80px;
+    height: 6px;
+    border-radius: 3px;
+    background: transparent !important;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    border: none;
+    box-shadow: none;
+}
+
+.mbr-volume-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.4);
+    border: none;
+}
+
+.mbr-volume-slider::-webkit-slider-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.4);
+    border: none;
+}
+
+.mbr-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease;
+    border: 3px solid #5b21b6;
+    margin-top: -6px;
+}
+
+.mbr-volume-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+
+.mbr-volume-slider::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.4);
+    border: none;
+}
+
+.mbr-volume-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: 3px solid #5b21b6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.mbr-volume-slider::-moz-range-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+
+.mbr-volume-slider::-ms-track {
+    width: 100%;
+    height: 6px;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+
+.mbr-volume-slider::-ms-fill-lower,
+.mbr-volume-slider::-ms-fill-upper {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+}
+
+.mbr-volume-slider::-ms-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: 3px solid #5b21b6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.mbr-volume-slider:focus {
+    outline: none;
+    background: transparent !important;
+}
+
+.mbr-volume-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.mbr-volume-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .mbr-player-inner {
+        padding: 20px;
+        gap: 16px;
+    }
+    
+    .mbr-player-artwork {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .mbr-player-title {
+        font-size: 16px;
+    }
+    
+    .mbr-play-btn {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .mbr-volume-slider {
+        width: 60px;
+    }
+}
+
+@media (max-width: 400px) {
+    .mbr-player-inner {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .mbr-player-info {
+        flex-basis: 100%;
+        text-align: center;
+    }
+    
+    .mbr-player-status {
+        justify-content: center;
+    }
+    
+    .mbr-volume-control {
+        width: 100%;
+        justify-content: center;
+        margin-top: 8px;
+    }
+}
+
+/* Metadata Marquee */
+.mbr-metadata-marquee {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    right: 10px;
+    background: transparent;
+    overflow: hidden;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    padding: 5px 10px;
+}
+
+.mbr-marquee-content {
+    display: inline-block;
+    white-space: nowrap;
+    padding-left: 100%;
+    animation: marquee 20s linear infinite;
+}
+
+.mbr-now-playing {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-shadow: 
+        0 0 8px rgba(0, 0, 0, 0.8),
+        0 1px 3px rgba(0, 0, 0, 0.9),
+        0 2px 6px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.3px;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translate(0, 0);
+    }
+    100% {
+        transform: translate(-100%, 0);
+    }
+}
+
+/* Track Artwork Overlay */
+.mbr-player-artwork {
+    position: relative;
+}
+
+.mbr-station-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mbr-track-art {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: 1;
+}
+
+.mbr-track-art.active {
+    opacity: 1;
+}
+
+/* ========================================
+   GLASSMORPHISM EFFECT
+   ======================================== */
+
+/* Base glassmorphism styling */
+.mbr-radio-player.mbr-glassmorphism .mbr-player-inner {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Glassmorphism overlay effect */
+.mbr-radio-player.mbr-glassmorphism .mbr-player-inner::before {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.2) 0%, 
+        rgba(255, 255, 255, 0.05) 100%) !important;
+}
+
+/* Glassmorphism with Dark Mode */
+.mbr-radio-player.mbr-glassmorphism.mbr-dark-mode .mbr-player-inner {
+    background: rgba(26, 26, 46, 0.3) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.mbr-radio-player.mbr-glassmorphism.mbr-dark-mode .mbr-player-inner::before {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.1) 0%, 
+        rgba(255, 255, 255, 0.02) 100%) !important;
+}
+
+/* Enhanced text contrast for glassmorphism */
+.mbr-radio-player.mbr-glassmorphism .mbr-player-title {
+    text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-status-text {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Glassmorphism controls */
+.mbr-radio-player.mbr-glassmorphism .mbr-play-btn {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-play-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Glassmorphism volume button - make background transparent */
+.mbr-radio-player.mbr-glassmorphism .mbr-volume-btn {
+    background: rgba(255, 255, 255, 0) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-volume-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Glassmorphism volume slider */
+.mbr-radio-player.mbr-glassmorphism .mbr-volume-slider {
+    background: transparent;
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-volume-slider::-webkit-slider-thumb {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-volume-slider::-moz-range-thumb {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+/* Glassmorphism metadata marquee */
+.mbr-radio-player.mbr-glassmorphism .mbr-metadata-marquee {
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(0, 0, 0, 0.2) 10%, 
+        rgba(0, 0, 0, 0.2) 90%, 
+        transparent 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced text shadow for metadata in glassmorphism */
+.mbr-radio-player.mbr-glassmorphism .mbr-now-playing {
+    text-shadow: 
+        0 0 10px rgba(0, 0, 0, 0.8),
+        0 2px 4px rgba(0, 0, 0, 0.9),
+        0 4px 8px rgba(0, 0, 0, 0.7);
+}
+
+/* Glassmorphism artwork overlay */
+.mbr-radio-player.mbr-glassmorphism .mbr-player-artwork {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Glassmorphism pop-out button */
+.mbr-radio-player.mbr-glassmorphism .mbr-popout-btn {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mbr-radio-player.mbr-glassmorphism .mbr-popout-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Glassmorphism with dark mode - enhanced controls */
+.mbr-radio-player.mbr-glassmorphism.mbr-dark-mode .mbr-play-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mbr-radio-player.mbr-glassmorphism.mbr-dark-mode .mbr-play-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ========================================
+   DARK MODE STYLES
+   ======================================== */
+
+.mbr-radio-player.mbr-dark-mode .mbr-player-inner {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-player-inner::before {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%) !important;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-player-title {
+    color: #ffffff !important;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-status-text {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-status-dot {
+    background: #4ade80;
+}
+
+.mbr-radio-player.mbr-dark-mode.playing .mbr-status-dot {
+    box-shadow: 0 0 8px #4ade80, 0 0 12px #4ade80;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-play-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-play-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-volume-btn {
+    color: #ffffff;
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-volume-slider {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-volume-slider::-webkit-slider-thumb {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-volume-slider::-moz-range-thumb {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-metadata-marquee {
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(0, 0, 0, 0.4) 10%, 
+        rgba(0, 0, 0, 0.4) 90%, 
+        transparent 100%
+    );
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-now-playing {
+    color: #ffffff;
+    text-shadow: 
+        0 0 8px rgba(0, 0, 0, 0.9),
+        0 1px 3px rgba(0, 0, 0, 1),
+        0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-player-artwork {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-popout-btn {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.mbr-radio-player.mbr-dark-mode .mbr-popout-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* ============================================
+   Sticky Player Styles
+   ============================================ */
+
+.mbr-radio-player-sticky {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 99999 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    transform: translateY(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.15);
+    --mbr-gradient-color-1: #667eea;
+    --mbr-gradient-color-2: #764ba2;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Position variants */
+.mbr-radio-player-sticky.mbr-sticky-top {
+    top: 0 !important;
+    bottom: auto !important;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+}
+
+.mbr-radio-player-sticky.mbr-sticky-bottom {
+    bottom: 0 !important;
+    top: auto !important;
+}
+
+/* Hidden state */
+.mbr-radio-player-sticky.mbr-sticky-hidden.mbr-sticky-top {
+    transform: translateY(-100%);
+}
+
+.mbr-radio-player-sticky.mbr-sticky-hidden.mbr-sticky-bottom {
+    transform: translateY(100%);
+}
+
+/* Inner container */
+.mbr-sticky-inner {
+    background: linear-gradient(135deg, var(--mbr-gradient-color-1) 0%, var(--mbr-gradient-color-2) 100%);
+    padding: 12px 120px 12px 20px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px;
+    position: relative;
+    max-width: 100%;
+    overflow: visible;
+    min-height: 80px;
+    flex-wrap: nowrap !important;
+}
+
+/* Close button */
+.mbr-sticky-close {
+    position: absolute !important;
+    top: 50% !important;
+    right: 12px !important;
+    transform: translateY(-50%) !important;
+    background: rgba(255, 255, 255, 0.25) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease;
+    color: white !important;
+    backdrop-filter: blur(10px);
+    z-index: 10 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 24px !important;
+    font-weight: 300 !important;
+    line-height: 1 !important;
+}
+
+/* Force SVG and all children visible */
+.mbr-sticky-close svg,
+.mbr-sticky-close svg *,
+.mbr-sticky-close svg path {
+    display: block !important;
+    width: 20px !important;
+    height: 20px !important;
+    fill: white !important;
+    stroke: white !important;
+    color: white !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* CSS fallback if SVG doesn't show */
+.mbr-sticky-close::before {
+    content: '×' !important;
+    position: absolute !important;
+    color: white !important;
+    font-size: 28px !important;
+    line-height: 1 !important;
+    opacity: 1 !important;
+}
+
+.mbr-sticky-close:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+    transform: translateY(-50%) scale(1.05) !important;
+}
+
+.mbr-sticky-close:active {
+    transform: translateY(-50%) scale(0.95) !important;
+}
+
+/* Artwork */
+.mbr-sticky-artwork {
+    flex-shrink: 0 !important;
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.mbr-sticky-artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block !important;
+    opacity: 1 !important;
+}
+
+/* Info section */
+.mbr-sticky-info {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    color: white !important;
+    padding-right: 20px;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.mbr-sticky-title {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: white !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.mbr-sticky-metadata {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.95) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 18px;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.mbr-now-playing-text::before {
+    content: '♫ ';
+}
+
+/* Controls */
+.mbr-sticky-controls {
+    position: absolute !important;
+    right: 145px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px !important;
+    z-index: 5 !important;
+}
+
+.mbr-sticky-controls .mbr-play-btn {
+    background: rgba(255, 255, 255, 0.25);
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    backdrop-filter: blur(10px);
+}
+
+.mbr-sticky-controls .mbr-play-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: scale(1.05);
+}
+
+.mbr-sticky-controls .mbr-play-btn:active {
+    transform: scale(0.95);
+}
+
+.mbr-sticky-controls .mbr-icon {
+    color: white;
+    width: 24px;
+    height: 24px;
+}
+
+.mbr-sticky-controls .mbr-icon-pause {
+    display: none;
+}
+
+.mbr-sticky-controls .mbr-loading-spinner {
+    display: none;
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: mbr-spin 0.8s linear infinite;
+}
+
+.mbr-radio-player-sticky.playing .mbr-icon-play {
+    display: none;
+}
+
+.mbr-radio-player-sticky.playing .mbr-icon-pause {
+    display: block;
+}
+
+.mbr-radio-player-sticky.loading .mbr-icon {
+    display: none;
+}
+
+.mbr-radio-player-sticky.loading .mbr-loading-spinner {
+    display: block;
+}
+
+/* Volume button */
+.mbr-sticky-controls .mbr-volume-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.mbr-sticky-controls .mbr-volume-btn:hover {
+    transform: scale(1.1);
+}
+
+.mbr-sticky-controls .mbr-volume-btn .mbr-icon {
+    color: white;
+    width: 24px;
+    height: 24px;
+}
+
+.mbr-sticky-controls .mbr-icon-volume-muted {
+    display: none;
+}
+
+.mbr-radio-player-sticky.muted .mbr-icon-volume-high {
+    display: none;
+}
+
+.mbr-radio-player-sticky.muted .mbr-icon-volume-muted {
+    display: block;
+}
+
+/* Volume slider */
+.mbr-sticky-controls .mbr-volume-slider {
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.3);
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+.mbr-sticky-controls .mbr-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mbr-sticky-controls .mbr-volume-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.mbr-sticky-controls .mbr-volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.mbr-sticky-controls .mbr-volume-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Pop-out button in sticky player */
+.mbr-sticky-controls .mbr-popout-btn {
+    position: absolute !important;
+    right: -61px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: rgba(255, 255, 255, 0.25) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease;
+    color: white !important;
+    backdrop-filter: blur(10px);
+    padding: 0 !important;
+}
+
+.mbr-sticky-controls .mbr-popout-btn svg {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+    fill: white !important;
+}
+
+.mbr-sticky-controls .mbr-popout-btn:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+    transform: translateY(-50%) scale(1.05) !important;
+}
+
+.mbr-sticky-controls .mbr-popout-btn:active {
+    transform: translateY(-50%) scale(0.95) !important;
+}
+
+/* Status indicator - hidden on sticky player to save space */
+.mbr-sticky-status {
+    display: none !important;
+}
+
+/* Dark Mode for Sticky Player */
+.mbr-radio-player-sticky.mbr-dark-mode .mbr-sticky-inner {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* Glassmorphism for Sticky Player */
+.mbr-radio-player-sticky.mbr-glassmorphism .mbr-sticky-inner {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mbr-radio-player-sticky.mbr-glassmorphism.mbr-dark-mode .mbr-sticky-inner {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .mbr-sticky-controls .mbr-volume-slider {
+        display: none;
+    }
+    
+    .mbr-sticky-controls {
+        gap: 8px;
+        padding-right: 45px;
+    }
+    
+    .mbr-sticky-title {
+        font-size: 14px;
+    }
+    
+    .mbr-sticky-metadata {
+        font-size: 12px;
+    }
+    
+    .mbr-sticky-status {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .mbr-sticky-artwork {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .mbr-sticky-inner {
+        padding: 10px 15px;
+        gap: 12px;
+    }
+    
+    .mbr-sticky-controls .mbr-play-btn {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .mbr-sticky-close {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+
+/* Hide sticky player on mobile devices (if option enabled) */
+@media screen and (max-width: 767px) {
+    body.mbr-hide-sticky-mobile .mbr-radio-player-sticky {
+        display: none !important;
+    }
+}
+

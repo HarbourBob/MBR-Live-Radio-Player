@@ -1,0 +1,805 @@
+<?php
+/**
+ * Stream Proxy Handler
+ * Converts HTTP audio streams to HTTPS for secure playback
+ */
+
+// Exit if accessed directly
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class MBR_LRP_Proxy {
+    
+    /**
+     * Constructor
+     */
+    public function __construct() {
+        // Register proxy endpoint
+        add_action( 'init', array( $this, 'register_proxy_endpoint' ) );
+        add_action( 'template_redirect', array( $this, 'handle_proxy_request' ) );
+        
+        // Add settings
+        add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
+        add_action( 'admin_init', array( $this, 'register_settings' ) );
+        
+        // AJAX endpoint for fetching metadata
+        add_action( 'wp_ajax_mbr_get_metadata', array( $this, 'ajax_get_metadata' ) );
+        add_action( 'wp_ajax_nopriv_mbr_get_metadata', array( $this, 'ajax_get_metadata' ) );
+    }
+    
+    /**
+     * AJAX handler to get current metadata
+     */
+    public function ajax_get_metadata() {
+        $stream_url = isset( $_GET['stream_url'] ) ? rawurldecode( $_GET['stream_url'] ) : '';
+        
+        if ( empty( $stream_url ) ) {
+            wp_send_json_error( 'No stream URL provided' );
+        }
+        
+        error_log( "MBR Metadata AJAX: Request for URL: {$stream_url}" );
+        
+        // Check if this is a SomaFM stream - they have a JSON API!
+        if ( stripos( $stream_url, 'somafm.com' ) !== false ) {
+            error_log( "MBR Metadata AJAX: Detected SomaFM stream" );
+            $metadata = $this->fetch_somafm_metadata( $stream_url );
+            if ( $metadata && ! empty( $metadata['title'] ) ) {
+                error_log( "MBR Metadata AJAX: SomaFM returned: {$metadata['title']}" );
+                wp_send_json_success( $this->normalize_metadata( $metadata ) );
+                return;
+            }
+        }
+        
+        // Check cache (populated by the main streaming connection)
+        $stream_key = 'mbr_lrp_metadata_' . md5( $stream_url );
+        $metadata = get_transient( $stream_key );
+        
+        if ( $metadata && ! empty( $metadata['title'] ) ) {
+            error_log( "MBR Metadata AJAX: Found in cache: {$metadata['title']}" );
+            wp_send_json_success( $this->normalize_metadata( $metadata ) );
+            return;
+        }
+        
+        error_log( "MBR Metadata AJAX: Not in cache, fetching from stream..." );
+        
+        // No metadata in cache - try to fetch it directly from the stream
+        $metadata = $this->fetch_icecast_metadata( $stream_url );
+        
+        if ( $metadata && ! empty( $metadata['title'] ) ) {
+            // Cache it for future requests
+            set_transient( $stream_key, $metadata, 30 ); // 30 seconds
+            error_log( "MBR Metadata AJAX: Fetched and cached: {$metadata['title']}" );
+            wp_send_json_success( $this->normalize_metadata( $metadata ) );
+            return;
+        }
+        
+        error_log( "MBR Metadata AJAX: No metadata available, returning empty" );
+        
+        // No metadata available - return empty
+        wp_send_json_success( array( 'title' => '', 'url' => '', 'timestamp' => 0 ) );
+    }
+    
+    /**
+     * Normalize metadata to ensure all required fields are present
+     */
+    private function normalize_metadata( $metadata ) {
+        return array(
+            'title' => isset( $metadata['title'] ) ? $metadata['title'] : '',
+            'url' => isset( $metadata['url'] ) ? $metadata['url'] : '',
+            'timestamp' => isset( $metadata['timestamp'] ) ? $metadata['timestamp'] : time()
+        );
+    }
+    
+    /**
+     * Fetch metadata from SomaFM JSON API
+     */
+    private function fetch_somafm_metadata( $stream_url ) {
+        // Extract station name from URL
+        // Examples:
+        // http://ice1.somafm.com/groovesalad-128-mp3 -> groovesalad
+        // https://ice2.somafm.com/secretagent-128-aac -> secretagent
+        
+        if ( preg_match( '/somafm\.com\/([a-z0-9]+)-/i', $stream_url, $matches ) ) {
+            $station = $matches[1];
+        } else {
+            return false;
+        }
+        
+        // Fetch from SomaFM's JSON API
+        $api_url = 'https://somafm.com/songs/' . $station . '.json';
+        
+        $response = wp_remote_get( $api_url, array(
+            'timeout' => 5,
+            'sslverify' => false
+        ) );
+        
+        if ( is_wp_error( $response ) ) {
+            error_log( 'MBR SomaFM API error: ' . $response->get_error_message() );
+            return false;
+        }
+        
+        $body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $body, true );
+        
+        if ( empty( $data ) || ! isset( $data['songs'] ) || empty( $data['songs'] ) ) {
+            return false;
+        }
+        
+        // Get the most recent song (first in array)
+        $current_song = $data['songs'][0];
+        
+        // Format: "Artist - Title" or just "Title" if no artist
+        $title_parts = array();
+        if ( ! empty( $current_song['artist'] ) ) {
+            $title_parts[] = trim( $current_song['artist'] );
+        }
+        if ( ! empty( $current_song['title'] ) ) {
+            $title_parts[] = trim( $current_song['title'] );
+        }
+        
+        $metadata = array(
+            'title' => implode( ' - ', $title_parts ),
+            'url' => '', // Don't use buyurl for artwork (it's an iTunes link)
+            'timestamp' => time()
+        );
+        
+        // Try to get album art from SomaFM's image URLs
+        // SomaFM provides album art at: https://somafm.com/img3/{station}-400.jpg
+        if ( ! empty( $current_song['albumart'] ) ) {
+            $metadata['url'] = $current_song['albumart'];
+            error_log( 'MBR SomaFM: Album art URL: ' . $metadata['url'] );
+        } else {
+            error_log( 'MBR SomaFM: No album art in API response' );
+        }
+        
+        // Cache it
+        $stream_key = 'mbr_lrp_metadata_' . md5( $stream_url );
+        set_transient( $stream_key, $metadata, 30 );
+        
+        error_log( 'MBR SomaFM: Fetched metadata - ' . $metadata['title'] );
+        
+        return $metadata;
+    }
+    
+    /**
+     * Fetch metadata from Icecast stream using dedicated metadata proxy
+     */
+    private function fetch_icecast_metadata( $stream_url ) {
+        error_log( "MBR Metadata: Using metadata proxy for: {$stream_url}" );
+        
+        // Call the metadata proxy endpoint
+        $metadata_proxy_url = home_url( '/mbr-metadata-proxy/?url=' . rawurlencode( $stream_url ) );
+        
+        error_log( "MBR Metadata: Calling proxy at: {$metadata_proxy_url}" );
+        
+        // Use WordPress HTTP API
+        $response = wp_remote_get( $metadata_proxy_url, array(
+            'timeout' => 15,
+            'sslverify' => false,
+            'httpversion' => '1.1'
+        ));
+        
+        if ( is_wp_error( $response ) ) {
+            error_log( "MBR Metadata: Proxy request failed - " . $response->get_error_message() );
+            return false;
+        }
+        
+        $http_code = wp_remote_retrieve_response_code( $response );
+        $body = wp_remote_retrieve_body( $response );
+        
+        error_log( "MBR Metadata: HTTP Code: {$http_code}, Body length: " . strlen( $body ) );
+        error_log( "MBR Metadata: Proxy response body: " . substr( $body, 0, 500 ) );
+        
+        $data = json_decode( $body, true );
+        
+        if ( ! $data ) {
+            error_log( "MBR Metadata: JSON decode failed. Raw body: " . $body );
+            return false;
+        }
+        
+        if ( ! isset( $data['success'] ) ) {
+            error_log( "MBR Metadata: Response missing 'success' field. Keys: " . implode( ', ', array_keys( $data ) ) );
+            return false;
+        }
+        
+        if ( ! $data['success'] ) {
+            $error = isset( $data['error'] ) ? $data['error'] : 'Unknown error';
+            error_log( "MBR Metadata: Proxy returned error - {$error}" );
+            if ( isset( $data['metaint'] ) ) {
+                error_log( "MBR Metadata: Metaint: " . $data['metaint'] );
+            }
+            return false;
+        }
+        
+        error_log( "MBR Metadata: Successfully fetched via proxy - " . $data['data']['title'] );
+        
+        return $data['data'];
+    }
+    
+    /**
+     * Register proxy endpoint
+     */
+    public function register_proxy_endpoint() {
+        // Add query var first
+        add_rewrite_tag( '%mbr_radio_proxy%', '([^&]+)' );
+        add_rewrite_tag( '%mbr_metadata_proxy%', '([^&]+)' );
+        
+        // Add rewrite rule for audio proxy
+        add_rewrite_rule(
+            '^mbr-radio-proxy/?$',
+            'index.php?mbr_radio_proxy=1',
+            'top'
+        );
+        
+        // Add rewrite rule for metadata proxy
+        add_rewrite_rule(
+            '^mbr-metadata-proxy/?$',
+            'index.php?mbr_metadata_proxy=1',
+            'top'
+        );
+        
+        // Check if we need to flush (only on activation or first load)
+        $version = get_option( 'mbr_lrp_proxy_version', '0' );
+        if ( version_compare( $version, MBR_LRP_VERSION, '<' ) ) {
+            flush_rewrite_rules();
+            update_option( 'mbr_lrp_proxy_version', MBR_LRP_VERSION );
+        }
+    }
+    
+    /**
+     * Handle proxy requests
+     */
+    public function handle_proxy_request() {
+        // Check for metadata proxy request
+        if ( get_query_var( 'mbr_metadata_proxy' ) ) {
+            $this->handle_metadata_proxy_request();
+            return;
+        }
+        
+        // Handle audio proxy request
+        if ( ! get_query_var( 'mbr_radio_proxy' ) ) {
+            return;
+        }
+        
+        // Check if proxy is enabled
+        $proxy_enabled = get_option( 'mbr_lrp_proxy_enabled', '1' );
+        if ( $proxy_enabled !== '1' ) {
+            status_header( 403 );
+            echo 'Proxy disabled';
+            exit;
+        }
+        
+        // Get and validate stream URL
+        $stream_url = isset( $_GET['url'] ) ? $_GET['url'] : '';
+        
+        if ( empty( $stream_url ) ) {
+            status_header( 400 );
+            echo 'No URL provided';
+            exit;
+        }
+        
+        // Check if we should return playlist content instead of streaming
+        $return_playlist = isset( $_GET['playlist'] ) && $_GET['playlist'] === '1';
+        
+        // If requesting playlist content, handle it directly
+        if ( $return_playlist ) {
+            $this->return_playlist_content( rawurldecode( $stream_url ) );
+            exit;
+        }
+        
+        // For actual streaming, stream directly instead of redirecting
+        // Redirects can cause issues with browser audio playback
+        $this->stream_audio( rawurldecode( $stream_url ) );
+        exit;
+    }
+    
+    /**
+     * Handle metadata proxy requests
+     */
+    private function handle_metadata_proxy_request() {
+        // Include the standalone metadata proxy
+        $metadata_proxy_path = plugin_dir_path( dirname( __FILE__ ) ) . 'proxy-metadata.php';
+        
+        if ( file_exists( $metadata_proxy_path ) ) {
+            // The proxy file handles everything and exits
+            require_once( $metadata_proxy_path );
+        } else {
+            status_header( 500 );
+            header( 'Content-Type: application/json' );
+            echo json_encode( array(
+                'success' => false,
+                'error' => 'Metadata proxy file not found'
+            ));
+            exit;
+        }
+    }
+    
+    /**
+     * Stream audio from URL
+     */
+    private function stream_audio( $url ) {
+        // Check if URL is a playlist file (.m3u, .pls, .m3u8)
+        if ( preg_match('/\.(m3u|pls)(\?.*)?$/i', $url) && strpos($url, '.m3u8') === false ) {
+            // It's a playlist file, parse it to get actual stream URL
+            $actual_url = $this->parse_playlist( $url );
+            if ( $actual_url ) {
+                $url = $actual_url;
+            }
+        }
+        
+        // Disable all output buffering BEFORE anything else
+        while ( ob_get_level() > 0 ) {
+            ob_end_clean();
+        }
+        
+        // Set PHP INI settings
+        @ini_set('output_buffering', 'off');
+        @ini_set('zlib.output_compression', 0);
+        @ini_set('implicit_flush', 1);
+        
+        // CRITICAL: Set max execution time to unlimited for streaming
+        // Default 30 seconds or even 300 seconds will kill long radio streams
+        @set_time_limit(0);
+        @ini_set('max_execution_time', 0);
+        
+        // Disable WordPress actions that might buffer output
+        remove_action('shutdown', 'wp_ob_end_flush_all', 1);
+        
+        // Apache settings
+        if ( function_exists( 'apache_setenv' ) ) {
+            @apache_setenv('no-gzip', '1');
+        }
+        
+        // Initialize cURL
+        error_log( "MBR Proxy: Initializing cURL for URL: {$url}" );
+        $ch = curl_init( $url );
+        
+        if ( ! $ch ) {
+            status_header( 500 );
+            die( 'Failed to initialize stream' );
+        }
+        
+        // Force HTTP/1.1 to avoid HTTP/2 protocol issues
+        curl_setopt( $ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1 );
+        
+        // Set cURL options for streaming
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, false );
+        curl_setopt( $ch, CURLOPT_BINARYTRANSFER, true );
+        curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, true );
+        curl_setopt( $ch, CURLOPT_MAXREDIRS, 5 );
+        curl_setopt( $ch, CURLOPT_TIMEOUT, 0 );
+        curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 15 );
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, false );
+        curl_setopt( $ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' );
+        curl_setopt( $ch, CURLOPT_BUFFERSIZE, 8192 );
+        
+        // Don't request Icecast metadata - keep stream pure audio only
+        curl_setopt( $ch, CURLOPT_HTTPHEADER, array(
+            'Connection: close'
+        ));
+        
+        // Get headers from stream
+        $headers_sent = false;
+        $content_type = 'audio/mpeg';
+        
+        curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$content_type, &$headers_sent ) {
+            $len = strlen( $header );
+            
+            if ( stripos( $header, 'Content-Type:' ) === 0 ) {
+                $parts = explode( ':', $header, 2 );
+                if ( isset( $parts[1] ) ) {
+                    $content_type = trim( $parts[1] );
+                    
+                    // Normalize AAC+ variants to standard audio/aac for better browser compatibility
+                    if ( stripos( $content_type, 'aacp' ) !== false || stripos( $content_type, 'aac+' ) !== false ) {
+                        $content_type = 'audio/aac';
+                        error_log( 'MBR Proxy: Normalized AAC+ to: ' . $content_type );
+                    }
+                    
+                    error_log( 'MBR Proxy: Stream Content-Type: ' . $content_type );
+                }
+            }
+            
+            // Log any redirect or location headers
+            if ( stripos( $header, 'Location:' ) === 0 ) {
+                error_log( 'MBR Proxy: Redirect detected: ' . trim( $header ) );
+            }
+            
+            // Send our headers after we've received the stream's headers
+            if ( ! $headers_sent && trim( $header ) === '' ) {
+                // End of headers, send ours now
+                if ( ! headers_sent() ) {
+                    error_log( 'MBR Proxy: Sending response with Content-Type: ' . $content_type );
+                    status_header( 200 );
+                    header( 'Content-Type: ' . $content_type );
+                    header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+                    header( 'Pragma: no-cache' );
+                    header( 'Expires: 0' );
+                    header( 'Accept-Ranges: none' );
+                    // Connection: close is needed for proper audio streaming
+                    header( 'Connection: close' );
+                    header( 'X-Accel-Buffering: no' );
+                    // Don't set Transfer-Encoding: chunked - causes HTTP/2 protocol errors
+                    // The stream will be sent as-is without explicit chunking
+                }
+                $headers_sent = true;
+            }
+            
+            return $len;
+        });
+        
+        // Simple write callback - pure audio passthrough, no metadata handling
+        $bytes_written = 0;
+        $first_bytes_logged = false;
+        
+        curl_setopt( $ch, CURLOPT_WRITEFUNCTION, function( $ch, $data ) use ( &$bytes_written, &$first_bytes_logged, $url ) {
+            $data_len = strlen( $data );
+            
+            // Log first 16 bytes for debugging
+            if ( ! $first_bytes_logged && $data_len > 0 ) {
+                $first_bytes = substr( $data, 0, min( 16, $data_len ) );
+                $hex = bin2hex( $first_bytes );
+                error_log( "MBR Proxy: First bytes (pure audio): {$hex}" );
+                $first_bytes_logged = true;
+            }
+            
+            // Just output the data directly
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Raw binary stream data
+            echo $data;
+            $bytes_written += $data_len;
+            
+            // Flush every 16KB for smooth streaming
+            if ( $bytes_written >= 16384 ) {
+                if ( ob_get_level() > 0 ) {
+                    @ob_flush();
+                }
+                @flush();
+                $bytes_written = 0;
+            }
+            
+            return $data_len;
+        });
+        
+        // Execute streaming
+        error_log( "MBR Proxy: Starting cURL execution for: {$url}" );
+        $result = curl_exec( $ch );
+        $curl_error = curl_errno( $ch );
+        $curl_error_msg = curl_error( $ch );
+        $http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+        $effective_url = curl_getinfo( $ch, CURLINFO_EFFECTIVE_URL );
+        
+        error_log( "MBR Proxy: cURL execution completed. HTTP Code: {$http_code}, Result: " . ( $result ? 'true' : 'false' ) . ", Error code: {$curl_error}" );
+        error_log( "MBR Proxy: Total bytes received from stream: {$total_bytes_written}" );
+        
+        if ( $effective_url !== $url ) {
+            error_log( "MBR Proxy: URL was redirected to: {$effective_url}" );
+        }
+        
+        // Check for errors
+        if ( $curl_error ) {
+            error_log( "MBR Radio Proxy cURL Error: {$curl_error_msg} (Code: {$curl_error}) for URL: {$url}" );
+        }
+        
+        // Close cURL
+        curl_close( $ch );
+        
+        die();
+    }
+    
+    
+    /**
+     * Parse and store Icecast metadata
+     */
+    private function parse_and_store_metadata( $metadata, $stream_url ) {
+        // Parse metadata string (format: StreamTitle='Artist - Title';)
+        $metadata = trim( $metadata );
+        
+        if ( empty( $metadata ) ) {
+            return;
+        }
+        
+        error_log( "MBR Proxy: Raw metadata: " . bin2hex( $metadata ) );
+        
+        $meta_array = array();
+        
+        // Extract StreamTitle
+        if ( preg_match( "/StreamTitle='([^']*)'/", $metadata, $matches ) ) {
+            $meta_array['title'] = trim( $matches[1] );
+            error_log( "MBR Proxy: Extracted title: " . $meta_array['title'] );
+        }
+        
+        // Extract StreamUrl
+        if ( preg_match( "/StreamUrl='([^']*)'/", $metadata, $matches ) ) {
+            $meta_array['url'] = trim( $matches[1] );
+        }
+        
+        // Only store if we have data
+        if ( ! empty( $meta_array ) ) {
+            // Create a unique key for this stream
+            $stream_key = 'mbr_lrp_metadata_' . md5( $stream_url );
+            
+            // Add timestamp
+            $meta_array['timestamp'] = time();
+            
+            // Store in transient (expires in 30 seconds)
+            set_transient( $stream_key, $meta_array, 30 );
+            error_log( "MBR Proxy: Stored metadata with key: " . $stream_key );
+        }
+    }
+    
+    /**
+     * Parse playlist file to extract actual stream URL
+     */
+    private function parse_playlist( $url ) {
+        $response = wp_remote_get( $url, array(
+            'timeout' => 10,
+            'sslverify' => false
+        ) );
+        
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+        
+        $body = wp_remote_retrieve_body( $response );
+        
+        if ( empty( $body ) ) {
+            return false;
+        }
+        
+        // Parse .m3u format
+        if ( stripos( $url, '.m3u' ) !== false ) {
+            $lines = explode( "\n", $body );
+            foreach ( $lines as $line ) {
+                $line = trim( $line );
+                // Skip comments and empty lines
+                if ( empty( $line ) || $line[0] === '#' ) {
+                    continue;
+                }
+                // First valid URL we find
+                if ( filter_var( $line, FILTER_VALIDATE_URL ) ) {
+                    // Fix Shoutcast URLs that might point to server root
+                    return $this->fix_shoutcast_url( $line );
+                }
+            }
+        }
+        
+        // Parse .pls format
+        if ( stripos( $url, '.pls' ) !== false ) {
+            $lines = explode( "\n", $body );
+            foreach ( $lines as $line ) {
+                $line = trim( $line );
+                // Look for File1=URL format
+                if ( preg_match( '/^File\d+=(.+)$/i', $line, $matches ) ) {
+                    $stream_url = trim( $matches[1] );
+                    if ( filter_var( $stream_url, FILTER_VALIDATE_URL ) ) {
+                        // Fix Shoutcast URLs that might point to server root
+                        return $this->fix_shoutcast_url( $stream_url );
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Fix Shoutcast stream URLs that point to server root instead of stream
+     * Shoutcast servers return HTML when accessing the root, but audio at /; or /stream
+     */
+    private function fix_shoutcast_url( $url ) {
+        // Parse the URL
+        $parsed = wp_parse_url( $url );
+        
+        if ( ! $parsed || empty( $parsed['host'] ) ) {
+            return $url;
+        }
+        
+        // Check if this looks like a Shoutcast server (has port, no path or root path)
+        $has_port = ! empty( $parsed['port'] );
+        $is_root = empty( $parsed['path'] ) || $parsed['path'] === '/';
+        
+        if ( ! $has_port || ! $is_root ) {
+            return $url; // Not a typical Shoutcast base URL
+        }
+        
+        // Try common Shoutcast stream paths in order of likelihood
+        $paths_to_try = array(
+            '/;',              // Default Shoutcast stream endpoint
+            '/stream',         // Common alternative
+            '/;stream.mp3',    // Explicit format
+            '/;stream.nsv',    // Nullsoft streaming video/audio
+        );
+        
+        foreach ( $paths_to_try as $path ) {
+            $test_url = $parsed['scheme'] . '://' . $parsed['host'];
+            if ( ! empty( $parsed['port'] ) ) {
+                $test_url .= ':' . $parsed['port'];
+            }
+            $test_url .= $path;
+            
+            // Quick test: fetch just headers to see if this returns audio
+            $response = wp_remote_head( $test_url, array(
+                'timeout' => 5,
+                'sslverify' => false,
+                'redirection' => 0, // Don't follow redirects
+                'headers' => array(
+                    'Icy-MetaData' => '1',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                )
+            ) );
+            
+            if ( is_wp_error( $response ) ) {
+                continue;
+            }
+            
+            $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+            $icy_name = wp_remote_retrieve_header( $response, 'icy-name' );
+            
+            // Check if this returns audio content or has ICY headers (Shoutcast/Icecast indicator)
+            if ( 
+                stripos( $content_type, 'audio' ) !== false || 
+                stripos( $content_type, 'mpeg' ) !== false ||
+                stripos( $content_type, 'ogg' ) !== false ||
+                ! empty( $icy_name )
+            ) {
+                error_log( "MBR Proxy: Fixed Shoutcast URL from {$url} to {$test_url}" );
+                return $test_url;
+            }
+        }
+        
+        // If none of the paths worked, return the original URL
+        error_log( "MBR Proxy: Could not find working stream path for {$url}" );
+        return $url;
+    }
+    
+    /**
+     * Return playlist content as text
+     */
+    private function return_playlist_content( $url ) {
+        $response = wp_remote_get( $url, array(
+            'timeout' => 15,
+            'sslverify' => false,
+            'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        ) );
+        
+        if ( is_wp_error( $response ) ) {
+            status_header( 500 );
+            echo 'Failed to fetch playlist: ' . $response->get_error_message();
+            exit;
+        }
+        
+        $body = wp_remote_retrieve_body( $response );
+        
+        if ( empty( $body ) ) {
+            status_header( 500 );
+            echo 'Empty playlist response';
+            exit;
+        }
+        
+        // Return as plain text
+        header( 'Content-Type: text/plain; charset=utf-8' );
+        header( 'Access-Control-Allow-Origin: *' );
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Raw playlist content
+        echo $body;
+        exit;
+    }
+    
+    /**
+     * Add settings page
+     */
+    public function add_settings_page() {
+        add_submenu_page(
+            'edit.php?post_type=mbr_radio_station',
+            __( 'Proxy Settings', 'mbr-live-radio-player' ),
+            __( 'Proxy Settings', 'mbr-live-radio-player' ),
+            'manage_options',
+            'mbr-radio-proxy-settings',
+            array( $this, 'render_settings_page' )
+        );
+    }
+    
+    /**
+     * Register settings
+     */
+    public function register_settings() {
+        register_setting( 'mbr_lrp_proxy_settings', 'mbr_lrp_proxy_enabled', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field'
+        ) );
+        register_setting( 'mbr_lrp_proxy_settings', 'mbr_lrp_require_proxy', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field'
+        ) );
+    }
+    
+    /**
+     * Render settings page
+     */
+    public function render_settings_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Stream Proxy Settings', 'mbr-live-radio-player' ); ?></h1>
+            
+            <div class="notice notice-info">
+                <p>
+                    <strong><?php esc_html_e( 'Why do I need this?', 'mbr-live-radio-player' ); ?></strong><br>
+                    <?php esc_html_e( 'Most radio streams use HTTP, but your WordPress site uses HTTPS. Modern browsers block HTTP content on HTTPS pages for security. This proxy converts HTTP streams to HTTPS so they play correctly.', 'mbr-live-radio-player' ); ?>
+                </p>
+            </div>
+            
+            <form method="post" action="options.php">
+                <?php settings_fields( 'mbr_lrp_proxy_settings' ); ?>
+                
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e( 'Enable Stream Proxy', 'mbr-live-radio-player' ); ?>
+                        </th>
+                        <td>
+                            <label>
+                                <input 
+                                    type="checkbox" 
+                                    name="mbr_lrp_proxy_enabled" 
+                                    value="1"
+                                    <?php checked( get_option( 'mbr_lrp_proxy_enabled', '1' ), '1' ); ?>
+                                />
+                                <?php esc_html_e( 'Enable proxy for HTTP streams', 'mbr-live-radio-player' ); ?>
+                            </label>
+                            <p class="description">
+                                <?php esc_html_e( 'Recommended: Keep this enabled to play HTTP streams on your HTTPS site.', 'mbr-live-radio-player' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <?php esc_html_e( 'Proxy Mode', 'mbr-live-radio-player' ); ?>
+                        </th>
+                        <td>
+                            <label>
+                                <input 
+                                    type="radio" 
+                                    name="mbr_lrp_require_proxy" 
+                                    value="http_only"
+                                    <?php checked( get_option( 'mbr_lrp_require_proxy', 'http_only' ), 'http_only' ); ?>
+                                />
+                                <?php esc_html_e( 'Proxy HTTP streams only (Recommended)', 'mbr-live-radio-player' ); ?>
+                            </label>
+                            <br>
+                            <label>
+                                <input 
+                                    type="radio" 
+                                    name="mbr_lrp_require_proxy" 
+                                    value="all"
+                                    <?php checked( get_option( 'mbr_lrp_require_proxy', 'http_only' ), 'all' ); ?>
+                                />
+                                <?php esc_html_e( 'Proxy all streams', 'mbr-live-radio-player' ); ?>
+                            </label>
+                            <p class="description">
+                                <?php esc_html_e( 'HTTP streams need proxying on HTTPS sites. HTTPS streams work directly without proxy.', 'mbr-live-radio-player' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <?php submit_button(); ?>
+            </form>
+            
+            <hr>
+            
+            <h2><?php esc_html_e( 'Test Your Proxy', 'mbr-live-radio-player' ); ?></h2>
+            <p><?php esc_html_e( 'Use this URL format for HTTP streams:', 'mbr-live-radio-player' ); ?></p>
+            <code><?php echo esc_url( home_url( '/mbr-radio-proxy/?url=' ) ); ?>[YOUR_STREAM_URL]</code>
+            
+            <h3><?php esc_html_e( 'Example Streams to Test', 'mbr-live-radio-player' ); ?></h3>
+            <ul>
+                <li><strong>Capital UK (HTTP):</strong> <code>http://media-ice.musicradio.com/CapitalMP3</code></li>
+                <li><strong>Classic FM (HTTP):</strong> <code>http://media-ice.musicradio.com/ClassicFMMP3</code></li>
+                <li><strong>Absolute Radio (HTTP):</strong> <code>http://ais.absoluteradio.co.uk/absoluteradio.mp3</code></li>
+            </ul>
+        </div>
+        <?php
+    }
+}
