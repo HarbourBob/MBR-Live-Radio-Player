@@ -6,6 +6,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --mbr-gradient-color-1: #667eea;
     --mbr-gradient-color-2: #764ba2;
+    position: relative;
 }
 
 .mbr-player-inner {
@@ -22,6 +23,10 @@
     position: relative;
     overflow: hidden;
     min-height: 140px;
+}
+
+.mbr-player-inner.mbr-station-list-visible {
+    overflow: visible;
 }
 
 /* Pop-out Button */
@@ -1219,3 +1224,1641 @@
     }
 }
 
+
+
+/* ========================================
+   SKIN SYSTEM
+   ======================================== */
+
+/* ---- Skin 1: Classic (Vertical Card) ---- */
+.mbr-radio-player.mbr-skin-classic .mbr-player-inner {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+    background: linear-gradient(160deg, #e8eaf6 0%, #f3e5f5 100%) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+    padding-bottom: 48px;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-player-artwork {
+    width: 200px !important;
+    height: 150px !important;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    margin-bottom: 4px;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-player-title {
+    color: #2d2d2d !important;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-player-status {
+    justify-content: center;
+    color: #555 !important;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-status-dot {
+    background: rgba(0,0,0,0.25);
+}
+
+.mbr-radio-player.mbr-skin-classic.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 8px #e53935;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-play-btn {
+    background: #1a1a2e !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-volume-btn .mbr-icon path {
+    fill: #1a1a2e !important;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #1a1a2e;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-volume-slider::-moz-range-thumb {
+    border-color: #1a1a2e;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-popout-btn {
+    background: rgba(0,0,0,0.08);
+    color: #333;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-popout-btn svg {
+    fill: #333 !important;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-loading-spinner {
+    border-color: rgba(26,26,46,0.2);
+    border-top-color: #1a1a2e;
+}
+
+/* ============================================================
+   SKIN 2: Dark Flat
+   Solid charcoal flat bg, circular artwork flush left,
+   title + LIVE on same row, controls centred below on
+   a slightly darker strip — matches Smooth Jazz Mix screenshot
+   ============================================================ */
+
+.mbr-radio-player.mbr-skin-gradient-dark {
+    --skin2-bg: #3a3d4a;
+    --skin2-strip: #2e3040;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner {
+    background: var(--skin2-bg) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35) !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    min-height: 80px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner::before {
+    display: none;
+}
+
+/* Circular artwork flush to left */
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-artwork {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    align-self: center;
+    margin-left: 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+    border: 2px solid rgba(255,255,255,0.12) !important;
+    background: #222 !important;
+}
+
+/* Info row: title + LIVE badge inline */
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-info {
+    flex: 1 !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex-wrap: wrap;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-title {
+    color: #fff !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* Repurpose status area to show LIVE badge + dot */
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-status {
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-status-text {
+    display: none !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-status-dot {
+    background: rgba(255,255,255,0.3);
+    width: 8px;
+    height: 8px;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 6px #e53935;
+}
+
+/* Controls row: centred beneath on darker strip */
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-controls {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 80px !important;
+    right: 0 !important;
+    background: var(--skin2-strip) !important;
+    padding: 8px 16px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    z-index: 2 !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner {
+    padding-bottom: 44px !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn {
+    background: rgba(255,255,255,0.15) !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 44px !important;
+    height: 44px !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn:hover {
+    background: rgba(255,255,255,0.25) !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-btn .mbr-icon path {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.2);
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.2);
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-moz-range-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-popout-btn {
+    background: rgba(255,255,255,0.12) !important;
+    border: none !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-popout-btn svg {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-metadata-marquee {
+    left: 80px !important;
+    background: rgba(0,0,0,0.25) !important;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-now-playing {
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   SKIN 3: Ghost Bar
+   Very light grey/white single-row bar — play button LEFT,
+   LIVE badge + dot in the middle, volume + popout RIGHT.
+   No artwork, no title shown. Matches the minimal screenshot.
+   ============================================================ */
+
+.mbr-radio-player.mbr-skin-minimal {
+    max-width: 100%;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-player-inner {
+    background: #ebebeb !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    border: 1px solid #d8d8d8 !important;
+    padding: 8px 12px !important;
+    padding-bottom: 8px !important;
+    min-height: 50px !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-player-inner::before {
+    display: none;
+}
+
+/* No artwork */
+.mbr-radio-player.mbr-skin-minimal .mbr-player-artwork {
+    display: none !important;
+}
+
+/* No title text, no marquee */
+.mbr-radio-player.mbr-skin-minimal .mbr-player-info {
+    display: none !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-metadata-marquee {
+    display: none !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-popout-btn {
+    display: none !important;
+}
+
+/* Play button: dark grey circle, left edge */
+.mbr-radio-player.mbr-skin-minimal .mbr-play-btn {
+    width: 42px !important;
+    height: 42px !important;
+    background: #666 !important;
+    box-shadow: none !important;
+    border: none !important;
+    flex-shrink: 0 !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-play-btn:hover {
+    background: #444 !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.3);
+    border-top-color: #fff;
+}
+
+/* Controls: reflow to a single row — play | [spacer/live] | vol | popout */
+.mbr-radio-player.mbr-skin-minimal .mbr-player-controls {
+    flex: 1 !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: static !important;
+}
+
+/* Volume button transparent */
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-btn .mbr-icon path {
+    fill: #555 !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-slider {
+    width: 70px;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(0,0,0,0.18);
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-moz-range-track {
+    background: rgba(0,0,0,0.18);
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #555;
+    background: #444;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-moz-range-thumb {
+    border-color: #555;
+    background: #444;
+}
+
+/* Show a standalone popout icon in controls row */
+.mbr-radio-player.mbr-skin-minimal .mbr-volume-control {
+    margin-left: auto;
+    gap: 8px;
+}
+
+/* Re-enable the popout inside controls for this skin */
+.mbr-radio-player.mbr-skin-minimal .mbr-player-controls .mbr-popout-btn {
+    display: flex !important;
+    position: static !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 32px !important;
+    height: 32px !important;
+}
+
+.mbr-radio-player.mbr-skin-minimal .mbr-player-controls .mbr-popout-btn svg {
+    fill: #555 !important;
+}
+
+
+/* ---- Skin 6: Retro Boombox ---- */
+.mbr-radio-player.mbr-skin-retro .mbr-player-inner {
+    background: linear-gradient(160deg, #3a3a3a 0%, #1a1a1a 100%) !important;
+    border-radius: 18px;
+    padding: 16px !important;
+    gap: 16px !important;
+    box-shadow: 
+        0 10px 30px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    min-height: 120px;
+    padding-bottom: 50px !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-player-inner::before {
+    display: none;
+}
+
+/* Screen-style artwork box */
+.mbr-radio-player.mbr-skin-retro .mbr-player-artwork {
+    width: 110px !important;
+    height: 75px !important;
+    border-radius: 6px !important;
+    background: #0a0a1a !important;
+    border: 3px solid #555 !important;
+    box-shadow: 
+        inset 0 2px 8px rgba(0,0,0,0.8),
+        0 0 0 1px #333 !important;
+    overflow: hidden;
+    flex-shrink: 0 !important;
+    position: relative;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-player-artwork::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Hide info in retro - show as bottom label */
+.mbr-radio-player.mbr-skin-retro .mbr-player-info {
+    display: none !important;
+}
+
+/* Large knob-style play button */
+.mbr-radio-player.mbr-skin-retro .mbr-play-btn {
+    width: 72px !important;
+    height: 72px !important;
+    background: radial-gradient(circle at 35% 35%, #555, #111) !important;
+    border: 3px solid #444 !important;
+    box-shadow: 
+        0 4px 12px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 0 6px #2a2a2a !important;
+    border-radius: 50% !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-play-btn .mbr-icon {
+    width: 28px !important;
+    height: 28px !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+/* Volume controls */
+.mbr-radio-player.mbr-skin-retro .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-volume-btn .mbr-icon path {
+    fill: #aaa !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.15);
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.15);
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #888;
+    background: #ccc;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-moz-range-thumb {
+    border-color: #888;
+    background: #ccc;
+}
+
+/* Retro label strip */
+.mbr-radio-player.mbr-skin-retro .mbr-metadata-marquee {
+    background: rgba(0,0,0,0.5) !important;
+    border-top: 1px solid #333;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-now-playing {
+    color: #ccc;
+    font-size: 13px;
+    text-shadow: none;
+}
+
+/* Status dot */
+.mbr-radio-player.mbr-skin-retro.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 8px #e53935;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-player-status {
+    color: #aaa !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-popout-btn {
+    background: rgba(255,255,255,0.1) !important;
+    border: 1px solid #444 !important;
+}
+
+.mbr-radio-player.mbr-skin-retro .mbr-popout-btn svg {
+    fill: #aaa !important;
+}
+
+/* Retro station label at bottom */
+.mbr-radio-player.mbr-skin-retro .mbr-player-controls {
+    flex: 1;
+    justify-content: center;
+}
+
+/* ---- Skin 7: Slim Bar ---- */
+.mbr-radio-player.mbr-skin-slim-bar {
+    max-width: 100%;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-inner {
+    background: #0d1b3e !important;
+    border-radius: 6px;
+    padding: 10px 16px 10px 16px !important;
+    min-height: 52px !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
+    padding-bottom: 10px !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-inner::before {
+    display: none;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-artwork {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 4px !important;
+    flex-shrink: 0 !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-title {
+    font-size: 13px !important;
+    font-weight: 500;
+    color: #fff !important;
+    margin-bottom: 0 !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-status {
+    display: none !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-metadata-marquee {
+    display: none !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn {
+    width: 40px !important;
+    height: 40px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn .mbr-icon {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-btn .mbr-icon path {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider {
+    width: 60px;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.2);
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.2);
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-moz-range-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-controls {
+    margin-right: 60px !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-popout-btn {
+    background: rgba(255,255,255,0.1) !important;
+    border: none !important;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-popout-btn svg {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+/* Live badge on status text for slim bar */
+.mbr-radio-player.mbr-skin-slim-bar .mbr-player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+
+/* ========================================
+   SKIN SYSTEM — PREVIEW CONTAINER OVERRIDES
+   High-specificity copies to beat admin.css ID selector
+   ======================================== */
+
+/* ========================================
+   SKIN SYSTEM
+   ======================================== */
+
+/* ---- Skin 1: Classic (Vertical Card) ---- */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-inner {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+    background: linear-gradient(160deg, #e8eaf6 0%, #f3e5f5 100%) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+    padding-bottom: 48px;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-artwork {
+    width: 200px !important;
+    height: 150px !important;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    margin-bottom: 4px;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-title {
+    color: #2d2d2d !important;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-status {
+    justify-content: center;
+    color: #555 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-status-dot {
+    background: rgba(0,0,0,0.25);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 8px #e53935;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-play-btn {
+    background: #1a1a2e !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-volume-btn .mbr-icon path {
+    fill: #1a1a2e !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #1a1a2e;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-volume-slider::-moz-range-thumb {
+    border-color: #1a1a2e;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-popout-btn {
+    background: rgba(0,0,0,0.08);
+    color: #333;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-popout-btn svg {
+    fill: #333 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-loading-spinner {
+    border-color: rgba(26,26,46,0.2);
+    border-top-color: #1a1a2e;
+}
+
+/* ============================================================
+   SKIN 2: Dark Flat
+   Solid charcoal flat bg, circular artwork flush left,
+   title + LIVE on same row, controls centred below on
+   a slightly darker strip — matches Smooth Jazz Mix screenshot
+   ============================================================ */
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark {
+    --skin2-bg: #3a3d4a;
+    --skin2-strip: #2e3040;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner {
+    background: var(--skin2-bg) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35) !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    min-height: 80px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner::before {
+    display: none;
+}
+
+/* Circular artwork flush to left */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-artwork {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    align-self: center;
+    margin-left: 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+    border: 2px solid rgba(255,255,255,0.12) !important;
+    background: #222 !important;
+}
+
+/* Info row: title + LIVE badge inline */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-info {
+    flex: 1 !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex-wrap: wrap;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-title {
+    color: #fff !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* Repurpose status area to show LIVE badge + dot */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-status {
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-status-text {
+    display: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-status-dot {
+    background: rgba(255,255,255,0.3);
+    width: 8px;
+    height: 8px;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 6px #e53935;
+}
+
+/* Controls row: centred beneath on darker strip */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-controls {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 80px !important;
+    right: 0 !important;
+    background: var(--skin2-strip) !important;
+    padding: 8px 16px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    z-index: 2 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner {
+    padding-bottom: 44px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn {
+    background: rgba(255,255,255,0.15) !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 44px !important;
+    height: 44px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn:hover {
+    background: rgba(255,255,255,0.25) !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-btn .mbr-icon path {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.2);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.2);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-volume-slider::-moz-range-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-popout-btn {
+    background: rgba(255,255,255,0.12) !important;
+    border: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-popout-btn svg {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-metadata-marquee {
+    left: 80px !important;
+    background: rgba(0,0,0,0.25) !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-gradient-dark .mbr-now-playing {
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+}
+
+
+/* ============================================================
+   SKIN 3: Ghost Bar
+   Very light grey/white single-row bar — play button LEFT,
+   LIVE badge + dot in the middle, volume + popout RIGHT.
+   No artwork, no title shown. Matches the minimal screenshot.
+   ============================================================ */
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal {
+    max-width: 100%;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-inner {
+    background: #ebebeb !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    border: 1px solid #d8d8d8 !important;
+    padding: 8px 12px !important;
+    padding-bottom: 8px !important;
+    min-height: 50px !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-inner::before {
+    display: none;
+}
+
+/* No artwork */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-artwork {
+    display: none !important;
+}
+
+/* No title text, no marquee */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-info {
+    display: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-metadata-marquee {
+    display: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-popout-btn {
+    display: none !important;
+}
+
+/* Play button: dark grey circle, left edge */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-play-btn {
+    width: 42px !important;
+    height: 42px !important;
+    background: #666 !important;
+    box-shadow: none !important;
+    border: none !important;
+    flex-shrink: 0 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-play-btn:hover {
+    background: #444 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.3);
+    border-top-color: #fff;
+}
+
+/* Controls: reflow to a single row — play | [spacer/live] | vol | popout */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-controls {
+    flex: 1 !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: static !important;
+}
+
+/* Volume button transparent */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-btn .mbr-icon path {
+    fill: #555 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-slider {
+    width: 70px;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(0,0,0,0.18);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-moz-range-track {
+    background: rgba(0,0,0,0.18);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #555;
+    background: #444;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-slider::-moz-range-thumb {
+    border-color: #555;
+    background: #444;
+}
+
+/* Show a standalone popout icon in controls row */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-volume-control {
+    margin-left: auto;
+    gap: 8px;
+}
+
+/* Re-enable the popout inside controls for this skin */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-controls .mbr-popout-btn {
+    display: flex !important;
+    position: static !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 32px !important;
+    height: 32px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-minimal .mbr-player-controls .mbr-popout-btn svg {
+    fill: #555 !important;
+}
+
+
+/* ---- Skin 6: Retro Boombox ---- */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-inner {
+    background: linear-gradient(160deg, #3a3a3a 0%, #1a1a1a 100%) !important;
+    border-radius: 18px;
+    padding: 16px !important;
+    gap: 16px !important;
+    box-shadow: 
+        0 10px 30px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    min-height: 120px;
+    padding-bottom: 50px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-inner::before {
+    display: none;
+}
+
+/* Screen-style artwork box */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-artwork {
+    width: 110px !important;
+    height: 75px !important;
+    border-radius: 6px !important;
+    background: #0a0a1a !important;
+    border: 3px solid #555 !important;
+    box-shadow: 
+        inset 0 2px 8px rgba(0,0,0,0.8),
+        0 0 0 1px #333 !important;
+    overflow: hidden;
+    flex-shrink: 0 !important;
+    position: relative;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-artwork::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Hide info in retro - show as bottom label */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-info {
+    display: none !important;
+}
+
+/* Large knob-style play button */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-play-btn {
+    width: 72px !important;
+    height: 72px !important;
+    background: radial-gradient(circle at 35% 35%, #555, #111) !important;
+    border: 3px solid #444 !important;
+    box-shadow: 
+        0 4px 12px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 0 6px #2a2a2a !important;
+    border-radius: 50% !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-play-btn .mbr-icon {
+    width: 28px !important;
+    height: 28px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+/* Volume controls */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-btn .mbr-icon path {
+    fill: #aaa !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.15);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.15);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: #888;
+    background: #ccc;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-volume-slider::-moz-range-thumb {
+    border-color: #888;
+    background: #ccc;
+}
+
+/* Retro label strip */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-metadata-marquee {
+    background: rgba(0,0,0,0.5) !important;
+    border-top: 1px solid #333;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-now-playing {
+    color: #ccc;
+    font-size: 13px;
+    text-shadow: none;
+}
+
+/* Status dot */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro.playing .mbr-status-dot {
+    background: #e53935;
+    box-shadow: 0 0 8px #e53935;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-status {
+    color: #aaa !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-popout-btn {
+    background: rgba(255,255,255,0.1) !important;
+    border: 1px solid #444 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-popout-btn svg {
+    fill: #aaa !important;
+}
+
+/* Retro station label at bottom */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-retro .mbr-player-controls {
+    flex: 1;
+    justify-content: center;
+}
+
+/* ---- Skin 7: Slim Bar ---- */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar {
+    max-width: 100%;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-inner {
+    background: #0d1b3e !important;
+    border-radius: 6px;
+    padding: 10px 16px 10px 16px !important;
+    min-height: 52px !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
+    padding-bottom: 10px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-inner::before {
+    display: none;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-artwork {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 4px !important;
+    flex-shrink: 0 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-title {
+    font-size: 13px !important;
+    font-weight: 500;
+    color: #fff !important;
+    margin-bottom: 0 !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-status {
+    display: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-metadata-marquee {
+    display: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn {
+    width: 40px !important;
+    height: 40px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn .mbr-icon {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-play-btn .mbr-icon path {
+    fill: #fff !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-loading-spinner {
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-btn .mbr-icon path {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider {
+    width: 60px;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-webkit-slider-runnable-track {
+    background: rgba(255,255,255,0.2);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-moz-range-track {
+    background: rgba(255,255,255,0.2);
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-webkit-slider-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-volume-slider::-moz-range-thumb {
+    border-color: rgba(255,255,255,0.5);
+    background: #fff;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-controls {
+    margin-right: 60px !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-popout-btn {
+    background: rgba(255,255,255,0.1) !important;
+    border: none !important;
+}
+
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-popout-btn svg {
+    fill: rgba(255,255,255,0.8) !important;
+}
+
+/* Live badge on status text for slim bar */
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-slim-bar .mbr-player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ========================================
+   MULTI-STATION LIST
+   ======================================== */
+
+/* Stations toggle button — sits alongside popout btn */
+.mbr-stations-btn {
+    position: absolute;
+    top: 10px;
+    right: 44px; /* 10px gap left of popout btn at right:10px + 24px icon = 34px, +10 gap */
+    width: 28px;
+    height: 28px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+    z-index: 10;
+}
+
+.mbr-stations-btn:hover,
+.mbr-stations-btn--active {
+    background: rgba(255,255,255,0.3);
+}
+
+.mbr-stations-btn svg {
+    fill: rgba(255,255,255,0.9);
+    display: block;
+}
+
+/* Station list panel — slides up from bottom of player inner */
+.mbr-station-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(20, 20, 40, 0.97);
+    border-radius: 0 0 16px 16px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    z-index: 20;
+}
+
+.mbr-station-list--open {
+    max-height: 400px;
+}
+
+.mbr-station-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.mbr-station-list-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.mbr-station-list-close:hover { opacity: 1; }
+.mbr-station-list-close svg { fill: #fff; display: block; }
+
+.mbr-station-list-items {
+    overflow-y: auto;
+    max-height: 280px;
+    padding: 4px 0;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+
+.mbr-station-list-items::-webkit-scrollbar {
+    width: 4px;
+}
+
+.mbr-station-list-items::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.mbr-station-list-items::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.25);
+    border-radius: 2px;
+}
+
+.mbr-station-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.mbr-station-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.mbr-station-item--current {
+    background: rgba(255,255,255,0.12);
+}
+
+.mbr-station-item-art {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.mbr-station-item-art--placeholder {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.15);
+    flex-shrink: 0;
+}
+
+.mbr-station-item-title {
+    flex: 1;
+    font-size: 13px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mbr-station-item-playing-indicator {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.mbr-station-item-playing-indicator svg {
+    fill: #4ade80;
+    display: block;
+}
+
+.mbr-station-item--current .mbr-station-item-playing-indicator {
+    opacity: 1;
+}
+
+/* Dark/light skin adjustments for station btn */
+.mbr-radio-player.mbr-skin-classic .mbr-stations-btn {
+    background: rgba(0,0,0,0.08);
+}
+.mbr-radio-player.mbr-skin-classic .mbr-stations-btn svg {
+    fill: rgba(0,0,0,0.6);
+}
+.mbr-radio-player.mbr-skin-classic .mbr-stations-btn:hover {
+    background: rgba(0,0,0,0.15);
+}
+.mbr-radio-player.mbr-skin-minimal .mbr-stations-btn {
+    background: rgba(0,0,0,0.06);
+}
+.mbr-radio-player.mbr-skin-minimal .mbr-stations-btn svg {
+    fill: rgba(0,0,0,0.5);
+}
+
+/* ── File Player ─────────────────────────────────────────────── */
+
+/* Progress bar wrapper */
+.mbr-progress-bar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px 4px;
+    width: 100%;
+    flex-basis: 100%;
+    box-sizing: border-box;
+}
+
+.mbr-time-current,
+.mbr-time-duration {
+    font-size: 11px;
+    color: var(--mbr-text-secondary, rgba(255,255,255,0.6));
+    white-space: nowrap;
+    min-width: 30px;
+    font-variant-numeric: tabular-nums;
+}
+.mbr-time-duration { text-align: right; }
+
+.mbr-progress-bar {
+    position: relative;
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: height 0.15s ease;
+}
+.mbr-progress-bar:hover {
+    height: 6px;
+}
+.mbr-progress-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0%;
+    background: var(--mbr-accent, #1db954);
+    border-radius: 2px;
+    pointer-events: none;
+    transition: width 0.1s linear;
+}
+.mbr-progress-handle {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.mbr-progress-bar:hover .mbr-progress-handle {
+    opacity: 1;
+}
+
+/* File controls row */
+.mbr-file-controls {
+    justify-content: center;
+    gap: 4px;
+}
+
+.mbr-rewind-btn,
+.mbr-forward-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--mbr-text, rgba(255,255,255,0.85));
+    opacity: 0.75;
+    transition: opacity 0.15s, background 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+}
+.mbr-rewind-btn:hover,
+.mbr-forward-btn:hover {
+    opacity: 1;
+    background: rgba(255,255,255,0.1);
+}
+.mbr-rewind-btn svg text,
+.mbr-forward-btn svg text {
+    font-size: 5.5px;
+}
+
+/* Track list button */
+.mbr-tracklist-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.75);
+    transition: background 0.2s, color 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+.mbr-tracklist-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+
+/* Track number in list */
+.mbr-track-item-number {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    min-width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.mbr-station-item--current .mbr-track-item-number {
+    color: var(--mbr-accent, #1db954);
+}
+
+/* Light-skin overrides for progress bar */
+.mbr-skin-classic .mbr-progress-bar,
+.mbr-skin-minimal .mbr-progress-bar {
+    background: rgba(0,0,0,0.12);
+}
+.mbr-skin-classic .mbr-time-current,
+.mbr-skin-classic .mbr-time-duration,
+.mbr-skin-minimal .mbr-time-current,
+.mbr-skin-minimal .mbr-time-duration {
+    color: rgba(0,0,0,0.5);
+}
+.mbr-skin-classic .mbr-rewind-btn,
+.mbr-skin-classic .mbr-forward-btn,
+.mbr-skin-minimal .mbr-rewind-btn,
+.mbr-skin-minimal .mbr-forward-btn {
+    color: rgba(0,0,0,0.7);
+}
+.mbr-skin-classic .mbr-rewind-btn:hover,
+.mbr-skin-classic .mbr-forward-btn:hover,
+.mbr-skin-minimal .mbr-rewind-btn:hover,
+.mbr-skin-minimal .mbr-forward-btn:hover {
+    background: rgba(0,0,0,0.07);
+}
+.mbr-skin-classic .mbr-tracklist-btn,
+.mbr-skin-minimal .mbr-tracklist-btn {
+    background: rgba(0,0,0,0.07);
+    color: rgba(0,0,0,0.6);
+}
+.mbr-skin-classic .mbr-tracklist-btn:hover,
+.mbr-skin-minimal .mbr-tracklist-btn:hover {
+    background: rgba(0,0,0,0.14);
+    color: rgba(0,0,0,0.85);
+}

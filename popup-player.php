@@ -57,6 +57,14 @@ $bg_gradient = $dark_mode ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' 
 $glassmorphism = get_post_meta( $station_id, '_mbr_lrp_glassmorphism', true ) === '1';
 $glassmorphism_class = $glassmorphism ? ' mbr-glassmorphism' : '';
 
+// Get popout skin
+$allowed_skins  = array( 'default', 'classic', 'gradient-dark', 'minimal', 'retro', 'slim-bar' );
+$popout_skin    = get_post_meta( $station_id, '_mbr_lrp_popout_skin', true );
+if ( empty( $popout_skin ) || ! in_array( $popout_skin, $allowed_skins, true ) ) {
+    $popout_skin = 'default';
+}
+$popout_skin_class = ( $popout_skin !== 'default' ) ? ' mbr-skin-' . $popout_skin : '';
+
 // Get custom gradient colors from post meta
 $gradient_color_1 = get_post_meta( $station_id, '_mbr_lrp_gradient_color_1', true );
 $gradient_color_2 = get_post_meta( $station_id, '_mbr_lrp_gradient_color_2', true );
@@ -164,7 +172,7 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
 </head>
 <body>
 
-<div class="mbr-radio-player<?php echo esc_attr( $dark_mode_class . $glassmorphism_class ); ?>"<?php echo $custom_gradient; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via sprintf and esc_attr ?> 
+<div class="mbr-radio-player<?php echo esc_attr( $popout_skin_class . $dark_mode_class . $glassmorphism_class ); ?>"<?php echo $custom_gradient; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via sprintf and esc_attr ?> 
      id="<?php echo esc_attr( $player_id ); ?>" 
      data-stream="<?php echo esc_url( $stream_url ); ?>"
      data-proxy-url="<?php echo esc_url( $proxy_url ); ?>"

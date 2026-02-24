@@ -46,9 +46,22 @@
             return;
         }
         
-        // Check if any player needs HLS
-        var needsHls = false;
+        // Split players by mode — file players initialise immediately,
+        // stream players may need HLS.js to load first
+        var streamPlayers = [];
         players.forEach(function(player) {
+            if (player.classList.contains('mbr-mode-files')) {
+                initFilePlayer(player);
+            } else {
+                streamPlayers.push(player);
+            }
+        });
+        
+        if (!streamPlayers.length) return;
+        
+        // Check if any stream player needs HLS
+        var needsHls = false;
+        streamPlayers.forEach(function(player) {
             var streamUrl = player.dataset.stream;
             if (streamUrl && streamUrl.indexOf('.m3u8') !== -1) {
                 needsHls = true;
@@ -58,12 +71,12 @@
         // If HLS is needed, wait for it to load
         if (needsHls) {
             waitForHls(function() {
-                players.forEach(function(player) {
+                streamPlayers.forEach(function(player) {
                     initPlayer(player);
                 });
             });
         } else {
-            players.forEach(function(player) {
+            streamPlayers.forEach(function(player) {
                 initPlayer(player);
             });
         }
@@ -296,170 +309,8 @@
             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 console.log('Using HLS.js');
                 
-                // Configure HLS with custom loader for proxying
-                var hlsConfig = {
-                    maxBufferLength: 10,
-                    maxMaxBufferLength: 20,
-                    liveBackBufferLength: 0,
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    xhrSetup: function(xhr, url) {
-                        // Only proxy HTTP URLs
-                        if (needsProxy && proxyUrl && url.indexOf('http://') === 0) {
-                            // This will be called for every request HLS.js makes
-                            // We'll modify the URL in the loader instead
-                        }
-                    }
-                };
-                
-                // If we're using a proxy, create custom loader that handles manifest rewriting
-                if (needsProxy && proxyUrl) {
-                    var DefaultLoader = Hls.DefaultConfig.loader;
-                    var _streamUrl = streamUrl;
-                    var _baseDir = _streamUrl.substring(0, _streamUrl.lastIndexOf('/') + 1);
-                    
-                    function CustomLoader(config) {
-                        DefaultLoader.call(this, config);
-                        var _proxyUrl = proxyUrl;
-                        var self = this;
-                        
-                        // Helper to check if URL is proxied (checks both rewrite and actual file)
-                        function isProxiedUrl(url) {
-                            return url.indexOf(_proxyUrl) !== -1 || url.indexOf('proxy-stream.php') !== -1;
-                        }
-                        
-                        var originalLoad = this.load.bind(this);
-                        this.load = function(context, config, callbacks) {
-                            var url = context.url;
-                            var originalUrl = url;
-                            var isManifest = false;
-                            
-                            console.log('HLS.js requesting:', url);
-                            
-                            // Determine if this is a manifest request by checking the URL
-                            // Check both the current URL and if it contains .m3u8 anywhere
-                            if (url.indexOf('.m3u8') !== -1) {
-                                isManifest = true;
-                                console.log('Detected manifest request');
-                            }
-                            
-                            // Check if this is a relative URL
-                            if (url && !/^https?:\/\//i.test(url)) {
-                                url = _baseDir + url;
-                                console.log('Resolved relative URL to:', url);
-                            }
-                            
-                            // Proxy HTTP URLs
-                            if (url && url.indexOf('http://') === 0) {
-                                var proxiedUrl = _proxyUrl + 'url=' + encodeURIComponent(url);
-                                console.log('Proxying:', url, '->', proxiedUrl);
-                                context.url = proxiedUrl;
-                                
-                                // If this is a manifest file, intercept the response to rewrite segment URLs
-                                if (isManifest) {
-                                    var originalCallbacks = callbacks;
-                                    var originalOnSuccess = callbacks.onSuccess;
-                                    
-                                    callbacks = {
-                                        onSuccess: function(response, stats, context, networkDetails) {
-                                            // Modify the manifest text to use absolute proxied URLs
-                                            if (response.data && typeof response.data === 'string') {
-                                                console.log('Rewriting manifest URLs...');
-                                                var lines = response.data.split('\n');
-                                                var modifiedLines = lines.map(function(line) {
-                                                    var trimmedLine = line.trim();
-                                                    // If line is a segment file (relative path)
-                                                    if (trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.indexOf('.ts') !== -1) {
-                                                        // Check if it's not already a full proxy URL
-                                                        if (!isProxiedUrl(trimmedLine)) {
-                                                            // If it's not an absolute URL, make it one
-                                                            var absoluteUrl;
-                                                            if (!/^https?:\/\//i.test(trimmedLine)) {
-                                                                absoluteUrl = _baseDir + trimmedLine;
-                                                            } else {
-                                                                absoluteUrl = trimmedLine;
-                                                            }
-                                                            // Then proxy it (only if it's HTTP)
-                                                            if (absoluteUrl.indexOf('http://') === 0) {
-                                                                var proxiedSegmentUrl = _proxyUrl + 'url=' + encodeURIComponent(absoluteUrl);
-                                                                console.log('Rewrote segment:', trimmedLine, '->', proxiedSegmentUrl);
-                                                                return proxiedSegmentUrl;
-                                                            }
-                                                        }
-                                                    }
-                                                    return line;
-                                                });
-                                                response.data = modifiedLines.join('\n');
-                                            }
-                                            
-                                            // Call the original success callback
-                                            originalOnSuccess(response, stats, context, networkDetails);
-                                        },
-                                        onError: originalCallbacks.onError,
-                                        onTimeout: originalCallbacks.onTimeout,
-                                        onProgress: originalCallbacks.onProgress
-                                    };
-                                }
-                            } else if (url && isProxiedUrl(url) && isManifest) {
-                                // This is an already-proxied manifest URL - still need to rewrite it!
-                                console.log('Already-proxied manifest detected, will rewrite segments');
-                                var originalCallbacks = callbacks;
-                                var originalOnSuccess = callbacks.onSuccess;
-                                
-                                callbacks = {
-                                    onSuccess: function(response, stats, context, networkDetails) {
-                                        if (response.data && typeof response.data === 'string') {
-                                            console.log('Rewriting manifest URLs (proxied manifest)...');
-                                            var lines = response.data.split('\n');
-                                            var modifiedLines = lines.map(function(line) {
-                                                var trimmedLine = line.trim();
-                                                if (trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.indexOf('.ts') !== -1) {
-                                                    if (!isProxiedUrl(trimmedLine)) {
-                                                        var absoluteUrl;
-                                                        if (!/^https?:\/\//i.test(trimmedLine)) {
-                                                            absoluteUrl = _baseDir + trimmedLine;
-                                                        } else {
-                                                            absoluteUrl = trimmedLine;
-                                                        }
-                                                        if (absoluteUrl.indexOf('http://') === 0) {
-                                                            var proxiedSegmentUrl = _proxyUrl + 'url=' + encodeURIComponent(absoluteUrl);
-                                                            console.log('Rewrote segment (reload):', trimmedLine, '->', proxiedSegmentUrl);
-                                                            return proxiedSegmentUrl;
-                                                        }
-                                                    }
-                                                }
-                                                return line;
-                                            });
-                                            response.data = modifiedLines.join('\n');
-                                        }
-                                        originalOnSuccess(response, stats, context, networkDetails);
-                                    },
-                                    onError: originalCallbacks.onError,
-                                    onTimeout: originalCallbacks.onTimeout,
-                                    onProgress: originalCallbacks.onProgress
-                                };
-                                context.url = url; // Keep the already-proxied URL
-                            } else {
-                                context.url = url;
-                            }
-                            
-                            // Call the original load method with potentially modified callbacks
-                            originalLoad(context, config, callbacks);
-                        };
-                    }
-                    
-                    CustomLoader.prototype = Object.create(DefaultLoader.prototype);
-                    CustomLoader.prototype.constructor = CustomLoader;
-                    
-                    hlsConfig.loader = CustomLoader;
-                }
-                
-                hls = new Hls(hlsConfig);
-                
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    console.log('HLS manifest parsed successfully');
-                });
-                
+                // Build HLS instance with proxy-aware custom loader (shared with station switcher)
+                hls = buildHlsInstance(streamUrl);
                 hls.on(Hls.Events.ERROR, function(event, data) {
                     console.error('HLS Event Error:', data);
                     if (data.fatal) {
@@ -500,6 +351,101 @@
             console.log('Using standard audio for:', streamUrl);
             console.log('Final URL (may be proxied):', finalStreamUrl);
             audio.src = finalStreamUrl;
+        }
+        
+        /**
+         * Build an HLS.js instance with the proxy-aware custom loader.
+         * Used for both initial player load and station switching so both
+         * paths get identical proxy/manifest-rewriting behaviour.
+         * @param {string} sourceUrl  The raw (unproxied) .m3u8 URL
+         */
+        function buildHlsInstance(sourceUrl) {
+            var _baseDir = sourceUrl.substring(0, sourceUrl.lastIndexOf('/') + 1);
+            var urlNeedsProxy = proxyEnabled && proxyUrl && sourceUrl.indexOf('http://') === 0 && pageIsHttps;
+            
+            var instanceConfig = {
+                maxBufferLength: 10,
+                maxMaxBufferLength: 20,
+                liveBackBufferLength: 0,
+                enableWorker: true,
+                lowLatencyMode: true
+            };
+            
+            if (urlNeedsProxy) {
+                var DefaultLoader = Hls.DefaultConfig.loader;
+                
+                function ProxyLoader(config) {
+                    DefaultLoader.call(this, config);
+                    var _proxyUrl = proxyUrl;
+                    var _bd       = _baseDir;
+                    
+                    function isProxied(url) {
+                        return url.indexOf(_proxyUrl) !== -1 || url.indexOf('proxy-stream.php') !== -1;
+                    }
+                    
+                    var originalLoad = this.load.bind(this);
+                    this.load = function(context, config, callbacks) {
+                        var url = context.url;
+                        var isManifest = url.indexOf('.m3u8') !== -1;
+                        
+                        console.log('HLS.js requesting:', url);
+                        
+                        // Resolve relative URLs
+                        if (url && !/^https?:\/\//i.test(url)) {
+                            url = _bd + url;
+                        }
+                        
+                        // Intercept manifest responses to rewrite segment URLs
+                        function wrapManifestCallbacks(cb) {
+                            var orig = cb.onSuccess;
+                            return {
+                                onSuccess: function(response, stats, ctx, networkDetails) {
+                                    if (response.data && typeof response.data === 'string') {
+                                        var lines = response.data.split('\n');
+                                        lines = lines.map(function(line) {
+                                            var t = line.trim();
+                                            if (t && t.charAt(0) !== '#' && t.indexOf('.ts') !== -1 && !isProxied(t)) {
+                                                var abs = /^https?:\/\//i.test(t) ? t : _bd + t;
+                                                if (abs.indexOf('http://') === 0) {
+                                                    var proxied = _proxyUrl + 'url=' + encodeURIComponent(abs);
+                                                    console.log('Rewrote segment:', t, '->', proxied);
+                                                    return proxied;
+                                                }
+                                            }
+                                            return line;
+                                        });
+                                        response.data = lines.join('\n');
+                                    }
+                                    orig(response, stats, ctx, networkDetails);
+                                },
+                                onError:    cb.onError,
+                                onTimeout:  cb.onTimeout,
+                                onProgress: cb.onProgress
+                            };
+                        }
+                        
+                        if (url && url.indexOf('http://') === 0) {
+                            context.url = _proxyUrl + 'url=' + encodeURIComponent(url);
+                            console.log('Proxying:', url, '->', context.url);
+                            if (isManifest) callbacks = wrapManifestCallbacks(callbacks);
+                        } else if (isManifest && isProxied(url)) {
+                            console.log('Already-proxied manifest, rewriting segments');
+                            callbacks = wrapManifestCallbacks(callbacks);
+                            context.url = url;
+                        } else {
+                            context.url = url;
+                        }
+                        
+                        originalLoad(context, config, callbacks);
+                    };
+                }
+                
+                ProxyLoader.prototype = Object.create(DefaultLoader.prototype);
+                ProxyLoader.prototype.constructor = ProxyLoader;
+                instanceConfig.loader = ProxyLoader;
+            }
+            
+            return new Hls(instanceConfig);
         }
         
         initializeAudioPlayer();
@@ -841,12 +787,16 @@
                             stickyMetadataElement.textContent = 'Now Playing: ' + decodedTitle;
                         }
                         
-                        // Try to get artwork from Last.fm or other service
-                        // For now, we'll just show the track art if URL is provided
-                        if (trackArtElement && data.data.url) {
-                            trackArtElement.src = data.data.url;
-                            trackArtElement.style.display = 'block';
-                            trackArtElement.classList.add('active');
+                        // Track artwork from stream metadata (only available for some streams e.g. SomaFM)
+                        if (trackArtElement) {
+                            if (data.data.url) {
+                                trackArtElement.src = data.data.url;
+                                trackArtElement.style.display = 'block';
+                                trackArtElement.classList.add('active');
+                            } else {
+                                trackArtElement.style.display = 'none';
+                                trackArtElement.classList.remove('active');
+                            }
                         }
                     }
                 })
@@ -918,9 +868,592 @@
             }
         }
         
+        // ---- Multi-station list ----
+        var stationGroupRaw = playerElement.dataset.stationGroup;
+        if (stationGroupRaw) {
+            var stationGroup = [];
+            try { stationGroup = JSON.parse(stationGroupRaw); } catch(e) {}
+            
+            var stationsBtn  = playerElement.querySelector('.mbr-stations-btn');
+            var stationList  = playerElement.querySelector('.mbr-station-list');
+            var listItems    = playerElement.querySelector('.mbr-station-list-items');
+            var closeBtn     = playerElement.querySelector('.mbr-station-list-close');
+            
+            // Build the group station rows (other stations)
+            if (listItems && stationGroup.length) {
+                stationGroup.forEach(function(s) {
+                    var item = document.createElement('div');
+                    item.className = 'mbr-station-item';
+                    item.dataset.stream = s.stream;
+                    item.dataset.title  = s.title;
+                    item.dataset.art    = s.art || '';
+                    
+                    var artHtml = s.art
+                        ? '<img src="' + s.art + '" alt="" class="mbr-station-item-art" />'
+                        : '<span class="mbr-station-item-art mbr-station-item-art--placeholder"></span>';
+                    
+                    item.innerHTML = artHtml +
+                        '<span class="mbr-station-item-title">' + s.title + '</span>' +
+                        '<span class="mbr-station-item-playing-indicator">' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>' +
+                        '</span>';
+                    
+                    listItems.appendChild(item);
+                });
+            }
+            
+            // Open / close panel
+            var playerInner = playerElement.querySelector('.mbr-player-inner');
+
+            function openStationList() {
+                stationList.classList.add('mbr-station-list--open');
+                stationList.setAttribute('aria-hidden', 'false');
+                if (stationsBtn) stationsBtn.classList.add('mbr-stations-btn--active');
+                if (playerInner) playerInner.classList.add('mbr-station-list-visible');
+                // Mark the currently active station
+                updateActiveStation(playerElement.dataset.stream);
+            }
+            
+            function closeStationList() {
+                stationList.classList.remove('mbr-station-list--open');
+                stationList.setAttribute('aria-hidden', 'true');
+                if (stationsBtn) stationsBtn.classList.remove('mbr-stations-btn--active');
+                if (playerInner) playerInner.classList.remove('mbr-station-list-visible');
+            }
+            
+            function updateActiveStation(currentStream) {
+                if (!listItems) return;
+                var items = listItems.querySelectorAll('.mbr-station-item');
+                items.forEach(function(item) {
+                    if (item.dataset.stream === currentStream) {
+                        item.classList.add('mbr-station-item--current');
+                    } else {
+                        item.classList.remove('mbr-station-item--current');
+                    }
+                });
+            }
+            
+            if (stationsBtn) {
+                stationsBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (stationList.classList.contains('mbr-station-list--open')) {
+                        closeStationList();
+                    } else {
+                        openStationList();
+                    }
+                });
+            }
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    closeStationList();
+                });
+            }
+            
+            // Station switching
+            if (listItems) {
+                listItems.addEventListener('click', function(e) {
+                    var item = e.target.closest('.mbr-station-item');
+                    if (!item) return;
+                    // Only skip if this station is already the one actually playing
+                    if (item.dataset.stream === playerElement.dataset.stream) {
+                        closeStationList();
+                        return;
+                    }
+                    
+                    var newStream = item.dataset.stream;
+                    var newTitle  = item.dataset.title;
+                    var newArt    = item.dataset.art;
+                    
+                    // Fully tear down the current stream before switching.
+                    // CRITICAL: destroy HLS *before* clearing audio.src — if HLS is attached
+                    // and we clear audio.src first, HLS fights the element and causes stalls.
+                    function teardownCurrentStream() {
+                        if (hls) {
+                            hls.destroy();
+                            hls = null;
+                        }
+                        audio.pause();
+                        audio.removeAttribute('src');
+                        audio.load();
+                        isPlaying = false;
+                        stopBufferMonitoring();
+                        // Clear metadata polling so it restarts with the new stream URL
+                        if (metadataInterval) {
+                            clearInterval(metadataInterval);
+                            metadataInterval = null;
+                        }
+                        lastMetadataTitle = '';
+                        playerElement.classList.remove('playing', 'loading');
+                    }
+                    
+                    teardownCurrentStream();
+                    
+                    // Update player data and UI
+                    playerElement.dataset.stream = newStream;
+                    
+                    var titleEl = playerElement.querySelector('.mbr-player-title');
+                    if (titleEl) titleEl.textContent = newTitle;
+                    
+                    var artworkWrapper = playerElement.querySelector('.mbr-player-inner > .mbr-player-artwork');
+                    var stationArtEl   = artworkWrapper ? artworkWrapper.querySelector('.mbr-station-art') : null;
+                    if (artworkWrapper) {
+                        if (newArt) {
+                            if (stationArtEl) {
+                                stationArtEl.src = newArt;
+                                stationArtEl.alt = newTitle;
+                            }
+                            artworkWrapper.style.display = '';
+                        } else {
+                            artworkWrapper.style.display = 'none';
+                        }
+                    }
+                    
+                    var statusEl = playerElement.querySelector('.mbr-status-text');
+                    if (statusEl) statusEl.textContent = 'Ready to play';
+                    
+                    // Clear metadata marquee and track art
+                    var marqueeEl = playerElement.querySelector('.mbr-now-playing');
+                    if (marqueeEl) marqueeEl.textContent = '';
+                    if (trackArtElement) {
+                        trackArtElement.style.display = 'none';
+                        trackArtElement.classList.remove('active');
+                        trackArtElement.src = '';
+                    }
+                    
+                    // Load and play the new stream, handling all stream types correctly
+                    function loadAndPlayStream(rawUrl) {
+                        playerElement.classList.add('loading');
+                        
+                        // Path 1: M3U playlist — fetch and resolve to real URL first
+                        if (rawUrl.indexOf('.m3u') !== -1 && rawUrl.indexOf('.m3u8') === -1) {
+                            var playlistFetchUrl = rawUrl;
+                            if (proxyEnabled && rawUrl.indexOf('http://') === 0 && pageIsHttps && proxyUrl) {
+                                playlistFetchUrl = proxyUrl + 'playlist=1&url=' + encodeURIComponent(rawUrl);
+                            }
+                            fetch(playlistFetchUrl)
+                                .then(function(r) { return r.text(); })
+                                .then(function(text) {
+                                    var lines = text.split('\n');
+                                    var urls  = [];
+                                    for (var i = 0; i < lines.length; i++) {
+                                        var l = lines[i].trim();
+                                        if (l && l.charAt(0) !== '#') urls.push(l);
+                                    }
+                                    if (!urls.length) {
+                                        playerElement.classList.remove('loading');
+                                        var se = playerElement.querySelector('.mbr-status-text');
+                                        if (se) se.textContent = 'Playlist error';
+                                        return;
+                                    }
+                                    var resolved = fixShoutcastUrl(urls.length > 1 ? urls[1] : urls[0]);
+                                    // Update actualStreamUrl so metadata polls the right station
+                                    actualStreamUrl = resolved;
+                                    var src = (proxyEnabled && resolved.indexOf('http://') === 0 && pageIsHttps && proxyUrl)
+                                        ? proxyUrl + 'url=' + encodeURIComponent(resolved)
+                                        : resolved;
+                                    audio.src = src;
+                                    audio.play().catch(function(err) {
+                                        console.error('MBR: Station switch (m3u) playback error', err);
+                                        playerElement.classList.remove('loading');
+                                    });
+                                })
+                                .catch(function() {
+                                    playerElement.classList.remove('loading');
+                                    var se = playerElement.querySelector('.mbr-status-text');
+                                    if (se) se.textContent = 'Playlist error';
+                                });
+                            return;
+                        }
+                        
+                        // Path 2: HLS — hls is guaranteed null here (teardownCurrentStream ran above).
+                        // Wait for the 'emptied' event before attaching to avoid a race condition
+                        // where audio.load() hasn't finished aborting the previous stream yet.
+                        if (rawUrl.indexOf('.m3u8') !== -1) {
+                            // Update actualStreamUrl for metadata polling
+                            actualStreamUrl = rawUrl;
+                            
+                            // Use setTimeout(0) to push HLS attachment to the next event loop
+                            // tick — gives the browser one tick to finish the audio.load() abort
+                            // before HLS attaches. buildHlsInstance gives the new HLS instance the
+                            // same proxy-aware custom loader as the initial player setup.
+                            setTimeout(function() {
+                                console.log('MBR Switch: attachHls — audio.readyState:', audio.readyState, 'hls?', !!hls);
+                                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                                    hls = buildHlsInstance(rawUrl);
+                                    hls.on(Hls.Events.ERROR, function(event, data) {
+                                        if (data.fatal) {
+                                            switch (data.type) {
+                                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                                    hls.startLoad(); break;
+                                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                                    hls.recoverMediaError(); break;
+                                                default:
+                                                    hls.destroy(); hls = null;
+                                                    var se = playerElement.querySelector('.mbr-status-text');
+                                                    if (se) se.textContent = 'Stream error';
+                                            }
+                                        }
+                                    });
+                                    hls.loadSource(rawUrl);
+                                    hls.attachMedia(audio);
+                                    hls.once(Hls.Events.MANIFEST_PARSED, function() {
+                                        audio.play().catch(function(err) {
+                                            console.error('MBR: Station switch (hls) playback error', err);
+                                            playerElement.classList.remove('loading');
+                                        });
+                                    });
+                                } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+                                    audio.src = rawUrl;
+                                    audio.play().catch(function(err) {
+                                        console.error('MBR: Station switch (hls-native) playback error', err);
+                                        playerElement.classList.remove('loading');
+                                    });
+                                } else {
+                                    playerElement.classList.remove('loading');
+                                    var se = playerElement.querySelector('.mbr-status-text');
+                                    if (se) se.textContent = 'Stream format not supported';
+                                }
+                            }, 0);
+                            return;
+                        }
+                        
+                        // Path 3: Direct MP3/AAC
+                        // Update actualStreamUrl for metadata polling
+                        actualStreamUrl = rawUrl;
+                        var src = (proxyEnabled && proxyUrl && rawUrl.indexOf('http://') === 0 && pageIsHttps)
+                            ? proxyUrl + 'url=' + encodeURIComponent(rawUrl)
+                            : rawUrl;
+                        audio.src = src;
+                        audio.play().catch(function(err) {
+                            console.error('MBR: Station switch (direct) playback error', err);
+                            playerElement.classList.remove('loading');
+                        });
+                    }
+                    
+                    loadAndPlayStream(newStream);
+                    
+                    updateActiveStation(newStream);
+                    closeStationList();
+                });
+            }
+        }
+        
         } // End of initializeAudioPlayer function
     }
+
     
+    // ─── File Player ─────────────────────────────────────────────────────────
+    function initFilePlayer(playerElement) {
+        var tracksData  = JSON.parse(playerElement.dataset.tracks || '[]');
+        if (!tracksData.length) return;
+
+        var audio        = playerElement.querySelector('.mbr-audio');
+        var playBtn      = playerElement.querySelector('.mbr-play-btn');
+        var rewindBtn    = playerElement.querySelector('.mbr-rewind-btn');
+        var forwardBtn   = playerElement.querySelector('.mbr-forward-btn');
+        var volumeBtn    = playerElement.querySelector('.mbr-volume-btn');
+        var volumeSlider = playerElement.querySelector('.mbr-volume-slider');
+        var progressBar  = playerElement.querySelector('.mbr-progress-bar');
+        var progressFill = playerElement.querySelector('.mbr-progress-fill');
+        var progressHandle = playerElement.querySelector('.mbr-progress-handle');
+        var timeCurrent  = playerElement.querySelector('.mbr-time-current');
+        var timeDuration = playerElement.querySelector('.mbr-time-duration');
+        var trackNameEl  = playerElement.querySelector('.mbr-file-track-name');
+        var statusText   = playerElement.querySelector('.mbr-status-text');
+        var tracklistBtn = playerElement.querySelector('.mbr-tracklist-btn');
+        var tracklistPanel = playerElement.querySelector('.mbr-tracklist-panel');
+        var closeBtn     = tracklistPanel ? tracklistPanel.querySelector('.mbr-station-list-close') : null;
+        var trackItems   = tracklistPanel ? tracklistPanel.querySelectorAll('.mbr-track-item') : [];
+
+        var currentIndex = 0;
+        var isPlaying    = false;
+        var isSeeking    = false;
+        var intendingToPlay = false; // guard against spurious pause during src assignment
+        var savePositionTimer = null; // throttle localStorage writes
+        
+        // ── Resume position (localStorage) ───────────────────────────────────
+        var STORAGE_PREFIX = 'mbr_fp_pos_';
+        
+        function storageKey(url) {
+            // Simple hash — strip query strings for stability
+            return STORAGE_PREFIX + url.split('?')[0];
+        }
+        
+        function savePosition(url, seconds) {
+            try {
+                if (seconds > 5) { // don't bother saving the very start
+                    localStorage.setItem(storageKey(url), Math.floor(seconds));
+                }
+            } catch(e) {} // storage may be disabled/full
+        }
+        
+        function getSavedPosition(url) {
+            try {
+                var val = localStorage.getItem(storageKey(url));
+                return val ? parseInt(val, 10) : 0;
+            } catch(e) { return 0; }
+        }
+        
+        function clearSavedPosition(url) {
+            try { localStorage.removeItem(storageKey(url)); } catch(e) {}
+        }
+        function formatTime(secs) {
+            if (isNaN(secs) || !isFinite(secs)) return '0:00';
+            var m = Math.floor(secs / 60);
+            var s = Math.floor(secs % 60);
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+        
+        function updateTrackUI(index) {
+            var track = tracksData[index];
+            var title = track.title || track.url.split('/').pop().replace(/\.[^.]+$/, '');
+            if (trackNameEl) {
+                trackNameEl.textContent = '♫ ' + title + ' ';
+                var mc = trackNameEl.parentElement;
+                mc.style.animation = 'none';
+                setTimeout(function() { mc.style.animation = ''; }, 10);
+            }
+            // Update active track in list
+            if (trackItems.length) {
+                for (var i = 0; i < trackItems.length; i++) {
+                    trackItems[i].classList.toggle('mbr-station-item--current', parseInt(trackItems[i].dataset.trackIndex, 10) === index);
+                }
+            }
+            playerElement.dataset.trackIndex = index;
+        }
+        
+        function loadTrack(index, autoPlay) {
+            var track = tracksData[index];
+            if (!track) return;
+            // Save position of the track we're leaving
+            var leaving = tracksData[currentIndex];
+            if (leaving && audio.currentTime > 5) savePosition(leaving.url, audio.currentTime);
+            currentIndex = index;
+            updateTrackUI(index);
+            if (autoPlay) {
+                audio.src = track.url;
+                // Seek to saved position after metadata loads
+                var seeked = false;
+                audio.addEventListener('canplay', function onCanPlay() {
+                    audio.removeEventListener('canplay', onCanPlay);
+                    if (seeked) return;
+                    seeked = true;
+                    var saved = getSavedPosition(track.url);
+                    if (saved > 5 && saved < (audio.duration - 3)) {
+                        audio.currentTime = saved;
+                    }
+                });
+                audio.play().catch(function(err) {
+                    console.error('MBR File Player: play() error:', err);
+                    playerElement.classList.remove('loading');
+                    if (statusText) statusText.textContent = 'Playback error';
+                });
+            }
+        }
+        
+        // ── Play / Pause ──────────────────────────────────────────────────────
+        playBtn.addEventListener('click', function() {
+            if (isPlaying) {
+                intendingToPlay = false;
+                audio.pause();
+            } else {
+                intendingToPlay = true;
+                // Set src from current track if not already set
+                var track = tracksData[currentIndex];
+                if (track && (!audio.src || audio.src === window.location.href || audio.src === '')) {
+                    audio.src = track.url;
+                    // Setting src fires a spurious 'pause' event — intendingToPlay guards against it
+                    
+                    // After metadata loads, seek to saved position (once only)
+                    var seeked = false;
+                    audio.addEventListener('canplay', function onCanPlay() {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        if (seeked) return;
+                        seeked = true;
+                        var saved = getSavedPosition(track.url);
+                        if (saved > 5 && saved < (audio.duration - 3)) {
+                            audio.currentTime = saved;
+                        }
+                    });
+                }
+                playerElement.classList.add('loading');
+                audio.play().catch(function(err) {
+                    intendingToPlay = false;
+                    console.error('MBR File Player: play() rejected:', err);
+                    playerElement.classList.remove('loading');
+                    if (statusText) statusText.textContent = 'Playback error';
+                });
+            }
+        });
+        
+        // ── Rewind / Forward ──────────────────────────────────────────────────
+        if (rewindBtn) {
+            rewindBtn.addEventListener('click', function() {
+                if (audio.duration) audio.currentTime = Math.max(0, audio.currentTime - 15);
+            });
+        }
+        if (forwardBtn) {
+            forwardBtn.addEventListener('click', function() {
+                if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+            });
+        }
+        
+        // ── Volume ────────────────────────────────────────────────────────────
+        audio.volume = 0.7;
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', function() {
+                audio.volume = this.value / 100;
+                if (audio.volume === 0) {
+                    audio.muted = true;
+                    playerElement.classList.add('muted');
+                } else {
+                    audio.muted = false;
+                    playerElement.classList.remove('muted');
+                }
+            });
+        }
+        if (volumeBtn) {
+            volumeBtn.addEventListener('click', function() {
+                audio.muted = !audio.muted;
+                playerElement.classList.toggle('muted', audio.muted);
+                if (volumeSlider) volumeSlider.value = audio.muted ? 0 : audio.volume * 100;
+            });
+        }
+        
+        // ── Progress bar ──────────────────────────────────────────────────────
+        function updateProgress() {
+            if (!audio.duration || isSeeking) return;
+            var pct = (audio.currentTime / audio.duration) * 100;
+            if (progressFill)  progressFill.style.width  = pct + '%';
+            if (progressHandle) progressHandle.style.left = pct + '%';
+            if (timeCurrent)   timeCurrent.textContent   = formatTime(audio.currentTime);
+        }
+        
+        function seekTo(e) {
+            if (!audio.duration || !progressBar) return;
+            var rect = progressBar.getBoundingClientRect();
+            var pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            audio.currentTime = pct * audio.duration;
+            if (progressFill)   progressFill.style.width   = (pct * 100) + '%';
+            if (progressHandle) progressHandle.style.left  = (pct * 100) + '%';
+            if (timeCurrent)    timeCurrent.textContent    = formatTime(audio.currentTime);
+        }
+        
+        if (progressBar) {
+            progressBar.addEventListener('mousedown', function(e) {
+                isSeeking = true;
+                seekTo(e);
+                function onMove(e) { seekTo(e); }
+                function onUp()   { isSeeking = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup',  onUp);
+            });
+            // Touch support
+            progressBar.addEventListener('touchstart', function(e) {
+                isSeeking = true;
+                seekTo(e.touches[0]);
+                function onMove(e) { seekTo(e.touches[0]); }
+                function onEnd()   { isSeeking = false; document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); }
+                document.addEventListener('touchmove', onMove, { passive: true });
+                document.addEventListener('touchend',  onEnd);
+            }, { passive: true });
+        }
+        
+        // ── Audio events ──────────────────────────────────────────────────────
+        audio.addEventListener('playing', function() {
+            intendingToPlay = false;
+            isPlaying = true;
+            playerElement.classList.add('playing');
+            playerElement.classList.remove('loading');
+            if (statusText) statusText.textContent = 'Now Playing';
+        });
+        audio.addEventListener('pause', function() {
+            // Ignore spurious pause events that fire when src is assigned
+            if (intendingToPlay) return;
+            isPlaying = false;
+            playerElement.classList.remove('playing');
+            if (statusText) statusText.textContent = 'Paused';
+        });
+        audio.addEventListener('waiting', function() {
+            playerElement.classList.add('loading');
+        });
+        audio.addEventListener('canplay', function() {
+            playerElement.classList.remove('loading');
+        });
+        audio.addEventListener('timeupdate', function() {
+            updateProgress();
+            // Save position every 5 seconds (throttled to avoid hammering localStorage)
+            if (!savePositionTimer && audio.currentTime > 0) {
+                savePositionTimer = setTimeout(function() {
+                    savePositionTimer = null;
+                    var track = tracksData[currentIndex];
+                    if (track && isPlaying) savePosition(track.url, audio.currentTime);
+                }, 5000);
+            }
+        });
+        audio.addEventListener('durationchange', function() {
+            if (timeDuration) timeDuration.textContent = formatTime(audio.duration);
+        });
+        audio.addEventListener('ended', function() {
+            // Clear saved position — track completed naturally
+            var track = tracksData[currentIndex];
+            if (track) clearSavedPosition(track.url);
+            // Auto-advance
+            var next = currentIndex + 1;
+            if (next < tracksData.length) {
+                loadTrack(next, true);
+            } else {
+                // End of playlist — reset to track 1, don't auto-play
+                isPlaying = false;
+                playerElement.classList.remove('playing');
+                if (statusText) statusText.textContent = 'Ready to play';
+                loadTrack(0, false);
+            }
+        });
+        audio.addEventListener('error', function() {
+            intendingToPlay = false;
+            // Only show error if we were actually trying to play something
+            if (audio.src && audio.src !== window.location.href && audio.src !== '') {
+                var err = audio.error;
+                var msg = err ? 'Code ' + err.code + ': ' + (err.message || '') : 'unknown';
+                console.error('MBR File Player: audio error —', msg, 'src:', audio.src);
+                playerElement.classList.remove('loading', 'playing');
+                if (statusText) statusText.textContent = 'Error loading file';
+            }
+        });
+        
+        // ── Track list panel ──────────────────────────────────────────────────
+        if (tracklistBtn && tracklistPanel) {
+            tracklistBtn.addEventListener('click', function() {
+                var open = tracklistPanel.getAttribute('aria-hidden') === 'false';
+                tracklistPanel.setAttribute('aria-hidden', open ? 'true' : 'false');
+                tracklistPanel.classList.toggle('mbr-station-list--open', !open);
+            });
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    tracklistPanel.setAttribute('aria-hidden', 'true');
+                    tracklistPanel.classList.remove('mbr-station-list--open');
+                });
+            }
+            // Track item click
+            tracklistPanel.addEventListener('click', function(e) {
+                var item = e.target.closest('.mbr-track-item');
+                if (!item) return;
+                var idx = parseInt(item.dataset.trackIndex, 10);
+                loadTrack(idx, true);
+                tracklistPanel.setAttribute('aria-hidden', 'true');
+                tracklistPanel.classList.remove('mbr-station-list--open');
+            });
+        }
+        
+        // Show first track title in UI without triggering any load
+        updateTrackUI(0);
+    }
+    // ─── End File Player ──────────────────────────────────────────────────────
+    
+
     // Initialize sticky players - MUST be defined before calling
     function initStickyPlayers() {
         var stickyPlayers = document.querySelectorAll('.mbr-radio-player-sticky');
@@ -975,6 +1508,8 @@
             
             // CRITICAL: Initialize the player FIRST (while still in original position)
             // This sets up the audio element with the correct source URL
+            // Strip station group from sticky player — the switcher belongs on the main player only
+            stickyPlayer.removeAttribute('data-station-group');
             initPlayer(stickyPlayer);
             console.log('MBR Sticky: Player initialized in original position');
             
@@ -1063,5 +1598,8 @@
     // Note: Sticky players are designed to persist in document.body
     // When navigating to a new page, the browser naturally clears the DOM
     // No manual cleanup needed - simplified approach
+    
+    // Expose initFilePlayer for admin preview use
+    window.mbrInitFilePlayer = initFilePlayer;
     
 })();

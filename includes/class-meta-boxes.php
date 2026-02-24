@@ -33,6 +33,16 @@ class MBR_LRP_Meta_Boxes {
             'high'
         );
         
+        // Live preview meta box — sits in the normal column, directly below Station Details
+        add_meta_box(
+            'mbr_lrp_live_preview',
+            __( 'Player Preview', 'mbr-live-radio-player' ),
+            array( $this, 'render_live_preview' ),
+            'mbr_radio_station',
+            'normal',
+            'high'
+        );
+        
         // Appearance settings meta box
         add_meta_box(
             'mbr_lrp_appearance',
@@ -40,16 +50,6 @@ class MBR_LRP_Meta_Boxes {
             array( $this, 'render_appearance_settings' ),
             'mbr_radio_station',
             'normal',
-            'high'
-        );
-        
-        // Live preview meta box
-        add_meta_box(
-            'mbr_lrp_live_preview',
-            __( 'Live Preview', 'mbr-live-radio-player' ),
-            array( $this, 'render_live_preview' ),
-            'mbr_radio_station',
-            'side',
             'high'
         );
         
@@ -62,6 +62,26 @@ class MBR_LRP_Meta_Boxes {
             'side',
             'default'
         );
+        
+        // Popout Player Settings — below Player Appearance
+        add_meta_box(
+            'mbr_lrp_popout_settings',
+            __( 'Popout Player Settings', 'mbr-live-radio-player' ),
+            array( $this, 'render_popout_settings' ),
+            'mbr_radio_station',
+            'normal',
+            'default'
+        );
+        
+        // Station Group — multi-station selector
+        add_meta_box(
+            'mbr_lrp_station_group',
+            __( 'Station Group (Multi-Station)', 'mbr-live-radio-player' ),
+            array( $this, 'render_station_group' ),
+            'mbr_radio_station',
+            'normal',
+            'default'
+        );
     }
     
     /**
@@ -71,28 +91,94 @@ class MBR_LRP_Meta_Boxes {
         wp_nonce_field( 'mbr_lrp_save_meta', 'mbr_lrp_meta_nonce' );
         
         $stream_url = get_post_meta( $post->ID, '_mbr_lrp_stream_url', true );
+        $mode       = get_post_meta( $post->ID, '_mbr_lrp_mode', true );
+        if ( empty( $mode ) ) $mode = 'stream';
+        
+        $tracks = get_post_meta( $post->ID, '_mbr_lrp_tracks', true );
+        if ( ! is_array( $tracks ) ) $tracks = array();
         ?>
         <div class="mbr-lrp-meta-box">
-            <p>
-                <label for="mbr_lrp_stream_url">
-                    <strong><?php esc_html_e( 'Stream URL', 'mbr-live-radio-player' ); ?></strong>
+        
+            <!-- Mode toggle -->
+            <p style="margin-bottom:16px;">
+                <strong><?php esc_html_e( 'Player Mode', 'mbr-live-radio-player' ); ?></strong><br>
+                <label style="margin-right:20px;">
+                    <input type="radio" name="mbr_lrp_mode" value="stream" <?php checked( $mode, 'stream' ); ?> id="mbr_mode_stream" />
+                    <?php esc_html_e( 'Live Stream', 'mbr-live-radio-player' ); ?>
                 </label>
-                <input 
-                    type="url" 
-                    id="mbr_lrp_stream_url" 
-                    name="mbr_lrp_stream_url" 
-                    value="<?php echo esc_url( $stream_url ); ?>" 
-                    class="widefat"
-                    placeholder="https://example.com/stream.m3u8"
-                />
-                <span class="description">
-                    <?php esc_html_e( 'Enter the live stream URL. Supports HLS (.m3u8), MP3, AAC, and other formats.', 'mbr-live-radio-player' ); ?>
-                </span>
+                <label>
+                    <input type="radio" name="mbr_lrp_mode" value="files" <?php checked( $mode, 'files' ); ?> id="mbr_mode_files" />
+                    <?php esc_html_e( 'File Player', 'mbr-live-radio-player' ); ?>
+                </label>
             </p>
+            
+            <!-- Stream URL (visible in stream mode) -->
+            <div id="mbr-stream-url-row" <?php echo $mode === 'files' ? 'style="display:none;"' : ''; ?>>
+                <p>
+                    <label for="mbr_lrp_stream_url">
+                        <strong><?php esc_html_e( 'Stream URL', 'mbr-live-radio-player' ); ?></strong>
+                    </label>
+                    <input 
+                        type="url" 
+                        id="mbr_lrp_stream_url" 
+                        name="mbr_lrp_stream_url" 
+                        value="<?php echo esc_url( $stream_url ); ?>" 
+                        class="widefat"
+                        placeholder="https://example.com/stream.m3u8"
+                    />
+                    <span class="description">
+                        <?php esc_html_e( 'Live stream URL. Supports HLS (.m3u8), MP3, AAC, and Shoutcast/Icecast (.m3u).', 'mbr-live-radio-player' ); ?>
+                    </span>
+                </p>
+            </div>
+            
+            <!-- Track list (visible in files mode) -->
+            <div id="mbr-tracks-row" <?php echo $mode === 'stream' ? 'style="display:none;"' : ''; ?>>
+                <p>
+                    <strong><?php esc_html_e( 'Tracks', 'mbr-live-radio-player' ); ?></strong>
+                    <span class="description" style="margin-left:8px;">
+                        <?php esc_html_e( 'Add MP3, AAC, OGG or other audio files. Drag rows to reorder.', 'mbr-live-radio-player' ); ?>
+                    </span>
+                </p>
+                <div id="mbr-tracks-list" style="margin-bottom:10px;">
+                    <?php foreach ( $tracks as $i => $track ) :
+                        $track_title = isset( $track['title'] ) ? $track['title'] : '';
+                        $track_url   = isset( $track['url'] )   ? $track['url']   : '';
+                    ?>
+                    <div class="mbr-track-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:8px;">
+                        <span class="mbr-track-handle dashicons dashicons-menu" style="cursor:move;color:#999;flex-shrink:0;" title="Drag to reorder"></span>
+                        <input type="text"
+                               name="mbr_lrp_tracks[<?php echo esc_attr( $i ); ?>][title]"
+                               value="<?php echo esc_attr( $track_title ); ?>"
+                               placeholder="<?php esc_attr_e( 'Track title', 'mbr-live-radio-player' ); ?>"
+                               style="flex:1;min-width:0;"
+                               class="regular-text"
+                        />
+                        <input type="url"
+                               name="mbr_lrp_tracks[<?php echo esc_attr( $i ); ?>][url]"
+                               value="<?php echo esc_url( $track_url ); ?>"
+                               placeholder="<?php esc_attr_e( 'File URL', 'mbr-live-radio-player' ); ?>"
+                               style="flex:2;min-width:0;"
+                               class="regular-text mbr-track-url"
+                        />
+                        <button type="button" class="button mbr-pick-file" style="flex-shrink:0;">
+                            <?php esc_html_e( 'Choose', 'mbr-live-radio-player' ); ?>
+                        </button>
+                        <button type="button" class="button mbr-remove-track" style="flex-shrink:0;color:#a00;">
+                            &times;
+                        </button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <button type="button" class="button" id="mbr-add-track">
+                    + <?php esc_html_e( 'Add Track', 'mbr-live-radio-player' ); ?>
+                </button>
+            </div>
+            
         </div>
         <?php
     }
-    
+
     /**
      * Render live preview meta box
      */
@@ -127,6 +213,8 @@ class MBR_LRP_Meta_Boxes {
         wp_nonce_field( 'mbr_lrp_appearance_meta', 'mbr_lrp_appearance_nonce' );
         
         // Get saved values
+        $skin = get_post_meta( $post->ID, '_mbr_lrp_skin', true );
+        if ( empty( $skin ) ) $skin = 'default';
         $dark_mode = get_post_meta( $post->ID, '_mbr_lrp_dark_mode', true );
         $glassmorphism = get_post_meta( $post->ID, '_mbr_lrp_glassmorphism', true );
         $gradient_color_1 = get_post_meta( $post->ID, '_mbr_lrp_gradient_color_1', true );
@@ -135,11 +223,39 @@ class MBR_LRP_Meta_Boxes {
         // Set defaults
         if ( empty( $gradient_color_1 ) ) $gradient_color_1 = '#667eea';
         if ( empty( $gradient_color_2 ) ) $gradient_color_2 = '#764ba2';
+        
+        $skins = array(
+            'default'       => __( 'Default (Gradient)', 'mbr-live-radio-player' ),
+            'classic'       => __( 'Classic (Vertical Card)', 'mbr-live-radio-player' ),
+            'gradient-dark' => __( 'Dark Flat', 'mbr-live-radio-player' ),
+            'minimal'       => __( 'Ghost Bar', 'mbr-live-radio-player' ),
+            'retro'         => __( 'Retro Boombox', 'mbr-live-radio-player' ),
+            'slim-bar'      => __( 'Slim Bar', 'mbr-live-radio-player' ),
+        );
         ?>
         
         <div class="mbr-appearance-settings">
             <p class="description"><?php esc_html_e( 'Customize how this player looks on your site.', 'mbr-live-radio-player' ); ?></p>
             
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Player Skin', 'mbr-live-radio-player' ); ?></th>
+                    <td>
+                        <select name="mbr_lrp_skin" id="mbr_lrp_skin">
+                            <?php foreach ( $skins as $skin_key => $skin_label ) : ?>
+                                <option value="<?php echo esc_attr( $skin_key ); ?>" <?php selected( $skin, $skin_key ); ?>>
+                                    <?php echo esc_html( $skin_label ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e( 'Choose the visual style for this player. Note: Dark Mode, Glassmorphism, and custom gradients only apply when skin is set to Default.', 'mbr-live-radio-player' ); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div id="mbr-default-skin-options"><?php /* greyed out by JS when non-default skin selected */ ?>
             <table class="form-table">
                 <tr>
                     <th scope="row"><?php esc_html_e( 'Dark Mode', 'mbr-live-radio-player' ); ?></th>
@@ -232,6 +348,7 @@ class MBR_LRP_Meta_Boxes {
                     </td>
                 </tr>
             </table>
+            </div><!-- /#mbr-default-skin-options -->
         </div>
         <?php
     }
@@ -241,19 +358,26 @@ class MBR_LRP_Meta_Boxes {
      */
     public function render_shortcode( $post ) {
         if ( $post->post_status === 'publish' ) {
-            $shortcode = '[mbr_radio_player id="' . $post->ID . '"]';
+            $skin = get_post_meta( $post->ID, '_mbr_lrp_skin', true );
+            if ( empty( $skin ) || $skin === 'default' ) {
+                $shortcode = '[mbr_radio_player id="' . $post->ID . '"]';
+            } else {
+                $shortcode = '[mbr_radio_player id="' . $post->ID . '" skin="' . esc_attr( $skin ) . '"]';
+            }
             ?>
             <p><?php esc_html_e( 'Use this shortcode to display the player:', 'mbr-live-radio-player' ); ?></p>
             <input 
                 type="text" 
+                id="mbr-lrp-shortcode-display"
                 value="<?php echo esc_attr( $shortcode ); ?>" 
                 readonly 
                 class="widefat"
                 onclick="this.select();"
             />
             <p class="description">
-                <?php esc_html_e( 'Click to select and copy.', 'mbr-live-radio-player' ); ?>
+                <?php esc_html_e( 'Click to select and copy. Updates automatically when you change the skin.', 'mbr-live-radio-player' ); ?>
             </p>
+            <input type="hidden" id="mbr-lrp-post-id" value="<?php echo esc_attr( $post->ID ); ?>" />
             <?php
         } else {
             ?>
@@ -262,6 +386,114 @@ class MBR_LRP_Meta_Boxes {
             </p>
             <?php
         }
+    }
+    
+    /**
+     * Render popout player settings meta box
+     */
+    public function render_popout_settings( $post ) {
+        wp_nonce_field( 'mbr_lrp_popout_meta', 'mbr_lrp_popout_nonce' );
+        
+        $popout_skin = get_post_meta( $post->ID, '_mbr_lrp_popout_skin', true );
+        if ( empty( $popout_skin ) ) $popout_skin = 'default';
+        
+        $main_skin = get_post_meta( $post->ID, '_mbr_lrp_skin', true );
+        if ( empty( $main_skin ) ) $main_skin = 'default';
+        
+        $skins = array(
+            'default'       => __( 'Default (Gradient)', 'mbr-live-radio-player' ),
+            'classic'       => __( 'Classic (Vertical Card)', 'mbr-live-radio-player' ),
+            'gradient-dark' => __( 'Dark Flat', 'mbr-live-radio-player' ),
+            'minimal'       => __( 'Ghost Bar', 'mbr-live-radio-player' ),
+            'retro'         => __( 'Retro Boombox', 'mbr-live-radio-player' ),
+            'slim-bar'      => __( 'Slim Bar', 'mbr-live-radio-player' ),
+        );
+        
+        $disabled_class = ( $main_skin === 'default' ) ? ' mbr-options-disabled' : '';
+        ?>
+        <div id="mbr-popout-settings-wrapper" class="<?php echo esc_attr( ltrim( $disabled_class ) ); ?>">
+            <p class="description">
+                <?php esc_html_e( 'Choose the skin for the popout (pop-out) player window. Only available when a non-default skin is selected above.', 'mbr-live-radio-player' ); ?>
+            </p>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Popout Skin', 'mbr-live-radio-player' ); ?></th>
+                    <td>
+                        <select name="mbr_lrp_popout_skin">
+                            <?php foreach ( $skins as $skin_key => $skin_label ) : ?>
+                                <option value="<?php echo esc_attr( $skin_key ); ?>" <?php selected( $popout_skin, $skin_key ); ?>>
+                                    <?php echo esc_html( $skin_label ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e( 'The popout window will render this skin. The popout button is hidden when the Default skin is selected on the main player.', 'mbr-live-radio-player' ); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render station group meta box
+     */
+    public function render_station_group( $post ) {
+        wp_nonce_field( 'mbr_lrp_group_meta', 'mbr_lrp_group_nonce' );
+        
+        $saved_group = get_post_meta( $post->ID, '_mbr_lrp_station_group', true );
+        if ( ! is_array( $saved_group ) ) $saved_group = array();
+        
+        // Get all other published stations
+        $all_stations = get_posts( array(
+            'post_type'      => 'mbr_radio_station',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'exclude'        => array( $post->ID ),
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ) );
+        ?>
+        <div class="mbr-station-group-wrapper">
+            <p class="description">
+                <?php esc_html_e( 'Tick the stations you want to appear in this player\'s station list. A "Stations" button will appear on the player when at least one station is selected.', 'mbr-live-radio-player' ); ?>
+            </p>
+            <?php if ( empty( $all_stations ) ) : ?>
+                <p class="description" style="margin-top:10px;color:#888;">
+                    <?php esc_html_e( 'No other published stations found. Create more stations to build a group.', 'mbr-live-radio-player' ); ?>
+                </p>
+            <?php else : ?>
+                <div class="mbr-station-checklist" style="margin-top:12px;max-height:240px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;padding:8px 12px;">
+                    <?php foreach ( $all_stations as $station ) :
+                        $checked = in_array( $station->ID, array_map( 'intval', $saved_group ), true );
+                        $thumb   = get_the_post_thumbnail_url( $station->ID, 'thumbnail' );
+                    ?>
+                    <label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;">
+                        <input type="checkbox"
+                               name="mbr_lrp_station_group[]"
+                               value="<?php echo esc_attr( $station->ID ); ?>"
+                               <?php checked( $checked ); ?>
+                               style="flex-shrink:0;"
+                        />
+                        <?php if ( $thumb ) : ?>
+                            <img src="<?php echo esc_url( $thumb ); ?>" width="36" height="36" style="border-radius:4px;object-fit:cover;flex-shrink:0;" alt="" />
+                        <?php else : ?>
+                            <span style="width:36px;height:36px;background:#ddd;border-radius:4px;flex-shrink:0;display:inline-block;"></span>
+                        <?php endif; ?>
+                        <span><?php echo esc_html( get_the_title( $station->ID ) ); ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <p class="description" style="margin-top:8px;">
+                    <?php printf(
+                        esc_html__( '%d other station(s) available.', 'mbr-live-radio-player' ),
+                        count( $all_stations )
+                    ); ?>
+                </p>
+            <?php endif; ?>
+        </div>
+        <?php
     }
     
     /**
@@ -289,8 +521,36 @@ class MBR_LRP_Meta_Boxes {
             update_post_meta( $post_id, '_mbr_lrp_stream_url', $stream_url );
         }
         
+        // Save player mode
+        $mode = isset( $_POST['mbr_lrp_mode'] ) && $_POST['mbr_lrp_mode'] === 'files' ? 'files' : 'stream';
+        update_post_meta( $post_id, '_mbr_lrp_mode', $mode );
+        
+        // Save tracks (files mode)
+        if ( isset( $_POST['mbr_lrp_tracks'] ) && is_array( $_POST['mbr_lrp_tracks'] ) ) {
+            $raw_tracks   = array_values( wp_unslash( $_POST['mbr_lrp_tracks'] ) );
+            $clean_tracks = array();
+            foreach ( $raw_tracks as $track ) {
+                $url   = isset( $track['url'] )   ? esc_url_raw( $track['url'] )           : '';
+                $title = isset( $track['title'] ) ? sanitize_text_field( $track['title'] ) : '';
+                if ( ! empty( $url ) ) {
+                    $clean_tracks[] = array( 'title' => $title, 'url' => $url );
+                }
+            }
+            update_post_meta( $post_id, '_mbr_lrp_tracks', $clean_tracks );
+        } else {
+            update_post_meta( $post_id, '_mbr_lrp_tracks', array() );
+        }
+        
         // Save appearance settings
         if ( isset( $_POST['mbr_lrp_appearance_nonce'] ) && wp_verify_nonce( $_POST['mbr_lrp_appearance_nonce'], 'mbr_lrp_appearance_meta' ) ) {
+            // Skin
+            $allowed_skins = array( 'default', 'classic', 'gradient-dark', 'minimal', 'retro', 'slim-bar' );
+            $skin = isset( $_POST['mbr_lrp_skin'] ) ? sanitize_text_field( $_POST['mbr_lrp_skin'] ) : 'default';
+            if ( ! in_array( $skin, $allowed_skins, true ) ) {
+                $skin = 'default';
+            }
+            update_post_meta( $post_id, '_mbr_lrp_skin', $skin );
+            
             // Dark mode
             $dark_mode = isset( $_POST['mbr_lrp_dark_mode'] ) ? '1' : '0';
             update_post_meta( $post_id, '_mbr_lrp_dark_mode', $dark_mode );
@@ -315,6 +575,32 @@ class MBR_LRP_Meta_Boxes {
                 }
             }
         }
+        
+        // Save popout skin
+        if ( isset( $_POST['mbr_lrp_popout_nonce'] ) && wp_verify_nonce( $_POST['mbr_lrp_popout_nonce'], 'mbr_lrp_popout_meta' ) ) {
+            $allowed_skins = array( 'default', 'classic', 'gradient-dark', 'minimal', 'retro', 'slim-bar' );
+            $popout_skin   = isset( $_POST['mbr_lrp_popout_skin'] ) ? sanitize_text_field( $_POST['mbr_lrp_popout_skin'] ) : 'default';
+            if ( ! in_array( $popout_skin, $allowed_skins, true ) ) {
+                $popout_skin = 'default';
+            }
+            update_post_meta( $post_id, '_mbr_lrp_popout_skin', $popout_skin );
+        }
+        
+        // Save station group
+        if ( isset( $_POST['mbr_lrp_group_nonce'] ) && wp_verify_nonce( $_POST['mbr_lrp_group_nonce'], 'mbr_lrp_group_meta' ) ) {
+            $raw_group = isset( $_POST['mbr_lrp_station_group'] ) ? (array) $_POST['mbr_lrp_station_group'] : array();
+            $clean_group = array_map( 'absint', $raw_group );
+            $clean_group = array_filter( $clean_group ); // remove zeros
+            // Validate each ID is a published mbr_radio_station
+            $valid_group = array();
+            foreach ( $clean_group as $sid ) {
+                $sp = get_post( $sid );
+                if ( $sp && 'mbr_radio_station' === $sp->post_type && 'publish' === $sp->post_status ) {
+                    $valid_group[] = $sid;
+                }
+            }
+            update_post_meta( $post_id, '_mbr_lrp_station_group', $valid_group );
+        }
     }
     
     /**
@@ -324,6 +610,8 @@ class MBR_LRP_Meta_Boxes {
         global $post_type;
         
         if ( ( 'post.php' === $hook || 'post-new.php' === $hook ) && 'mbr_radio_station' === $post_type ) {
+            // WordPress media library (needed for file picker)
+            wp_enqueue_media();
             // Enqueue color picker
             wp_enqueue_style( 'wp-color-picker' );
             wp_enqueue_script( 'wp-color-picker' );
@@ -348,7 +636,7 @@ class MBR_LRP_Meta_Boxes {
             wp_enqueue_script(
                 'mbr-lrp-admin',
                 MBR_LRP_PLUGIN_URL . 'assets/js/admin.js',
-                array( 'jquery', 'wp-color-picker' ),
+                array( 'jquery', 'wp-color-picker', 'jquery-ui-sortable' ),
                 MBR_LRP_VERSION,
                 true
             );
@@ -360,13 +648,14 @@ class MBR_LRP_Meta_Boxes {
                 update_option( 'mbr_lrp_proxy_token', $proxy_token, false );
             }
             
-            // Pass proxy URL to admin JavaScript - use AJAX endpoint with trailing & and include token
+            // Pass proxy URL and ajax URL to admin JavaScript
             wp_localize_script(
                 'mbr-lrp-admin',
                 'mbrLrpAdmin',
                 array(
-                    'proxyUrl' => admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ),
-                    'proxyEnabled' => get_option( 'mbr_lrp_proxy_enabled', '1' ) === '1'
+                    'proxyUrl'     => admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ),
+                    'proxyEnabled' => get_option( 'mbr_lrp_proxy_enabled', '1' ) === '1',
+                    'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
                 )
             );
             

@@ -31,67 +31,153 @@
         function updatePreview() {
             console.log('MBR Admin: updatePreview called');
             
-            var title = $('#title').val() || 'Station Name';
-            var streamUrl = $('#mbr_lrp_stream_url').val();
+            var title      = $('#title').val() || 'Station Name';
+            var streamUrl  = $('#mbr_lrp_stream_url').val();
+            var mode       = $('input[name="mbr_lrp_mode"]:checked').val() || 'stream';
             var $container = $('#mbr-lrp-preview-container');
             
-            if (!streamUrl) {
-                $container.html('<p class="mbr-lrp-preview-notice">Enter a stream URL and station title to see the preview.</p>');
-                return;
-            }
-            
-            // Get featured image
+            // ── Shared appearance ─────────────────────────────────────────────
             var artworkUrl = '';
             var $featuredImg = $('#set-post-thumbnail img');
-            if ($featuredImg.length) {
-                artworkUrl = $featuredImg.attr('src');
-            }
+            if ($featuredImg.length) artworkUrl = $featuredImg.attr('src');
             
-            // Get appearance settings
-            var darkMode = $('input[name="mbr_lrp_dark_mode"]').is(':checked');
-            var glassmorphism = $('input[name="mbr_lrp_glassmorphism"]').is(':checked');
+            var skin           = $('select[name="mbr_lrp_skin"]').val() || 'default';
+            var darkMode       = $('input[name="mbr_lrp_dark_mode"]').is(':checked');
+            var glassmorphism  = $('input[name="mbr_lrp_glassmorphism"]').is(':checked');
             var gradientColor1 = $('input[name="mbr_lrp_gradient_color_1"]').val() || '#667eea';
             var gradientColor2 = $('input[name="mbr_lrp_gradient_color_2"]').val() || '#764ba2';
             
-            console.log('MBR Admin: Dark mode:', darkMode);
-            console.log('MBR Admin: Glassmorphism:', glassmorphism);
-            console.log('MBR Admin: Gradient colors:', gradientColor1, gradientColor2);
-            
-            // Build classes
             var playerClasses = 'mbr-radio-player';
-            if (darkMode) playerClasses += ' mbr-dark-mode';
-            if (glassmorphism) playerClasses += ' mbr-glassmorphism';
+            if (skin !== 'default') {
+                playerClasses += ' mbr-skin-' + skin;
+            } else {
+                if (darkMode)      playerClasses += ' mbr-dark-mode';
+                if (glassmorphism) playerClasses += ' mbr-glassmorphism';
+            }
             
-            console.log('MBR Admin: Player classes:', playerClasses);
-            
-            // Build gradient styles
             var gradientStyles = '';
-            if (!darkMode && !glassmorphism) {
+            if (skin === 'default' && !darkMode && !glassmorphism) {
                 gradientStyles = '#mbr-lrp-preview-container .mbr-radio-player .mbr-player-inner { ' +
                     'background: linear-gradient(135deg, ' + gradientColor1 + ' 0%, ' + gradientColor2 + ' 100%) !important; ' +
                 '}';
             }
             
-            console.log('MBR Admin: Gradient styles:', gradientStyles);
+            var artworkHtml = artworkUrl ?
+                '<div class="mbr-player-artwork"><img src="' + artworkUrl + '" alt="' + title + '" class="mbr-station-art" /></div>' : '';
             
-            // Build preview HTML
-            var artworkHtml = artworkUrl ? 
-                '<div class="mbr-player-artwork"><img src="' + artworkUrl + '" alt="' + title + '" /></div>' : '';
+            // ── File player preview ───────────────────────────────────────────
+            if (mode === 'files') {
+                var tracks = [];
+                $('#mbr-tracks-list .mbr-track-row').each(function() {
+                    var url    = $(this).find('.mbr-track-url').val() || '';
+                    var ttitle = $(this).find('input[type="text"]').val() || '';
+                    if (url) tracks.push({ url: url, title: ttitle });
+                });
+                
+                if (!tracks.length) {
+                    $container.html('<p class="mbr-lrp-preview-notice">Add at least one track to see the file player preview.</p>');
+                    return;
+                }
+                
+                var tracksJson = JSON.stringify(tracks).replace(/"/g, '&quot;');
+                
+                var tracklistBtnHtml = '';
+                var trackListHtml    = '';
+                if (tracks.length > 1) {
+                    tracklistBtnHtml =
+                        '<button class="mbr-tracklist-btn" aria-label="Track list">' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>' +
+                        '</button>';
+                    var trackItemsHtml = '';
+                    for (var ti = 0; ti < tracks.length; ti++) {
+                        var tname = tracks[ti].title || tracks[ti].url.split('/').pop().replace(/\.[^.]+$/, '');
+                        trackItemsHtml +=
+                            '<div class="mbr-station-item mbr-track-item' + (ti === 0 ? ' mbr-station-item--current' : '') + '" ' +
+                                 'data-track-index="' + ti + '" data-url="' + tracks[ti].url + '" data-title="' + tname + '">' +
+                                '<span class="mbr-track-item-number">' + (ti + 1) + '</span>' +
+                                '<span class="mbr-station-item-title">' + tname + '</span>' +
+                                '<span class="mbr-station-item-playing-indicator">' +
+                                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>' +
+                                '</span>' +
+                            '</div>';
+                    }
+                    trackListHtml =
+                        '<div class="mbr-station-list mbr-tracklist-panel" aria-hidden="true">' +
+                            '<div class="mbr-station-list-header"><span>Tracks</span>' +
+                                '<button class="mbr-station-list-close" aria-label="Close">' +
+                                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+                                '</button>' +
+                            '</div>' +
+                            '<div class="mbr-station-list-items mbr-tracklist-items">' + trackItemsHtml + '</div>' +
+                        '</div>';
+                }
+                
+                var fileHtml =
+                    '<style>' + gradientStyles + '</style>' +
+                    '<div class="' + playerClasses + ' mbr-mode-files" data-tracks="' + tracksJson + '" data-track-index="0">' +
+                        '<div class="mbr-player-inner">' +
+                            '<audio class="mbr-audio" preload="none"></audio>' +
+                            artworkHtml +
+                            '<div class="mbr-player-info">' +
+                                '<h3 class="mbr-player-title">' + title + '</h3>' +
+                                '<p class="mbr-player-status"><span class="mbr-status-dot"></span><span class="mbr-status-text">Ready to play</span></p>' +
+                            '</div>' +
+                            '<div class="mbr-metadata-marquee mbr-file-track-name-bar">' +
+                                '<div class="mbr-marquee-content"><span class="mbr-now-playing mbr-file-track-name"></span></div>' +
+                            '</div>' +
+                            '<div class="mbr-progress-bar-wrapper">' +
+                                '<span class="mbr-time-current">0:00</span>' +
+                                '<div class="mbr-progress-bar"><div class="mbr-progress-fill"></div><div class="mbr-progress-handle"></div></div>' +
+                                '<span class="mbr-time-duration">0:00</span>' +
+                            '</div>' +
+                            '<div class="mbr-player-controls mbr-file-controls">' +
+                                '<button class="mbr-rewind-btn" aria-label="Rewind 15 seconds">' +
+                                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="8.5" y="14.5" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="currentColor">15</text></svg>' +
+                                '</button>' +
+                                '<button class="mbr-play-btn" aria-label="Play">' +
+                                    '<svg class="mbr-icon mbr-icon-play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>' +
+                                    '<svg class="mbr-icon mbr-icon-pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>' +
+                                    '<div class="mbr-loading-spinner"></div>' +
+                                '</button>' +
+                                '<button class="mbr-forward-btn" aria-label="Forward 15 seconds">' +
+                                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="8.5" y="14.5" font-size="5.5" font-family="sans-serif" font-weight="bold" fill="currentColor">15</text></svg>' +
+                                '</button>' +
+                                '<div class="mbr-volume-control">' +
+                                    '<button class="mbr-volume-btn" aria-label="Mute">' +
+                                        '<svg class="mbr-icon mbr-icon-volume-high" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>' +
+                                        '<svg class="mbr-icon mbr-icon-volume-muted" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' +
+                                    '</button>' +
+                                    '<input type="range" class="mbr-volume-slider" min="0" max="100" value="70" aria-label="Volume" />' +
+                                '</div>' +
+                                tracklistBtnHtml +
+                            '</div>' +
+                            trackListHtml +
+                        '</div>' +
+                    '</div>';
+                
+                $container.html(fileHtml);
+                var $player = $container.find('.mbr-radio-player')[0];
+                if ($player && typeof window.mbrInitFilePlayer === 'function') {
+                    window.mbrInitFilePlayer($player);
+                }
+                updateShortcodeDisplay();
+                return;
+            }
+            
+            // ── Stream player preview (unchanged) ─────────────────────────────
+            if (!streamUrl) {
+                $container.html('<p class="mbr-lrp-preview-notice">Enter a stream URL and station title to see the preview.</p>');
+                return;
+            }
             
             var html = '<style>' +
-                '/* Critical CSS - Force icon visibility in admin preview */' +
-                '#mbr-lrp-preview-container .mbr-play-btn .mbr-icon-pause { display: none !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.playing .mbr-play-btn .mbr-icon-play { display: none !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.playing .mbr-play-btn .mbr-icon-pause { display: block !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.loading .mbr-play-btn .mbr-icon { display: none !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.loading .mbr-play-btn .mbr-loading-spinner { display: block !important; }' +
-                '#mbr-lrp-preview-container .mbr-volume-btn .mbr-icon-volume-muted { display: none !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.muted .mbr-volume-btn .mbr-icon-volume-high { display: none !important; }' +
-                '#mbr-lrp-preview-container .mbr-radio-player.muted .mbr-volume-btn .mbr-icon-volume-muted { display: block !important; }' +
                 gradientStyles +
                 '</style>' +
                 '<div class="' + playerClasses + '" data-stream="' + streamUrl + '">' +
                 '<div class="mbr-player-inner">' +
+                    '<button class="mbr-popout-btn" aria-label="Open in popup window" title="Pop-out player">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>' +
+                    '</button>' +
                     artworkHtml +
                     '<div class="mbr-player-info">' +
                         '<h3 class="mbr-player-title">' + title + '</h3>' +
@@ -102,35 +188,46 @@
                     '</div>' +
                     '<div class="mbr-player-controls">' +
                         '<button class="mbr-play-btn" aria-label="Play">' +
-                            '<svg class="mbr-icon mbr-icon-play" viewBox="0 0 24 24" fill="currentColor">' +
-                                '<path d="M8 5v14l11-7z"/>' +
-                            '</svg>' +
-                            '<svg class="mbr-icon mbr-icon-pause" viewBox="0 0 24 24" fill="currentColor">' +
-                                '<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>' +
-                            '</svg>' +
+                            '<svg class="mbr-icon mbr-icon-play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>' +
+                            '<svg class="mbr-icon mbr-icon-pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>' +
                             '<div class="mbr-loading-spinner"></div>' +
                         '</button>' +
                         '<div class="mbr-volume-control">' +
                             '<button class="mbr-volume-btn" aria-label="Mute">' +
-                                '<svg class="mbr-icon mbr-icon-volume-high" viewBox="0 0 24 24" fill="currentColor">' +
-                                    '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>' +
-                                '</svg>' +
-                                '<svg class="mbr-icon mbr-icon-volume-muted" viewBox="0 0 24 24" fill="currentColor">' +
-                                    '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>' +
-                                '</svg>' +
+                                '<svg class="mbr-icon mbr-icon-volume-high" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>' +
+                                '<svg class="mbr-icon mbr-icon-volume-muted" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' +
                             '</button>' +
                             '<input type="range" class="mbr-volume-slider" min="0" max="100" value="70" aria-label="Volume" />' +
                         '</div>' +
                     '</div>' +
+                    '<div class="mbr-metadata-marquee"><div class="mbr-marquee-content"><span class="mbr-now-playing"></span></div></div>' +
                 '</div>' +
             '</div>';
             
+            var $prev = $container.find('.mbr-radio-player');
+            if ($prev.length && $prev.data('metadataInterval')) {
+                clearInterval($prev.data('metadataInterval'));
+            }
+            
             $container.html(html);
-            
-            console.log('MBR Admin: Preview updated');
-            
-            // Initialize preview player
             initPreviewPlayer($container.find('.mbr-radio-player'));
+            updateShortcodeDisplay();
+        }
+
+        // Update the shortcode input to reflect current skin selection
+        function updateShortcodeDisplay() {
+            var $shortcodeInput = $('#mbr-lrp-shortcode-display');
+            if (!$shortcodeInput.length) return;
+            
+            var postId = $('#mbr-lrp-post-id').val();
+            if (!postId) return;
+            
+            var skin = $('select[name="mbr_lrp_skin"]').val() || 'default';
+            var shortcode = skin === 'default'
+                ? '[mbr_radio_player id="' + postId + '"]'
+                : '[mbr_radio_player id="' + postId + '" skin="' + skin + '"]';
+            
+            $shortcodeInput.val(shortcode);
         }
         
         // Initialize preview player functionality
@@ -140,6 +237,57 @@
             audio.preload = 'metadata'; // Only preload metadata for live streams
             var hls = null;
             var isPlaying = false;
+            
+            // ---- Metadata polling setup ----
+            // Called once we know the real resolved stream URL (after .m3u parsing etc.)
+            var metadataInterval  = null;
+            var lastMetadataTitle = '';
+            
+            function decodeEntities(text) {
+                var ta = document.createElement('textarea');
+                ta.innerHTML = text;
+                return ta.value;
+            }
+            
+            function startMetadataPolling(resolvedUrl) {
+                // Cancel any previous poll on this instance
+                if (metadataInterval) clearInterval(metadataInterval);
+                
+                var marqueeEl = $player.find('.mbr-now-playing')[0];
+                
+                function poll() {
+                    if (typeof mbrLrpAdmin === 'undefined' || !mbrLrpAdmin.ajaxUrl) {
+                        console.log('MBR Preview: mbrLrpAdmin.ajaxUrl not available');
+                        return;
+                    }
+                    var url = mbrLrpAdmin.ajaxUrl +
+                        '?action=mbr_get_metadata&stream_url=' + encodeURIComponent(resolvedUrl);
+                    console.log('MBR Preview: polling metadata — resolved URL:', resolvedUrl);
+                    fetch(url)
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            console.log('MBR Preview: metadata response', data);
+                            if (data.success && data.data.title && data.data.title !== lastMetadataTitle) {
+                                lastMetadataTitle = data.data.title;
+                                var decoded = decodeEntities(data.data.title);
+                                console.log('MBR Preview: new track —', decoded);
+                                if (marqueeEl) {
+                                    marqueeEl.textContent = '♫ Now Playing: ' + decoded + ' ';
+                                    var mc = marqueeEl.parentElement;
+                                    mc.style.animation = 'none';
+                                    setTimeout(function() { mc.style.animation = ''; }, 10);
+                                }
+                            }
+                        })
+                        .catch(function(err) {
+                            console.log('MBR Preview: metadata poll failed', err);
+                        });
+                }
+                
+                poll(); // immediate
+                metadataInterval = setInterval(poll, 30000);
+                $player.data('metadataInterval', metadataInterval);
+            }
             
             // Buffer monitoring for admin preview
             var bufferCheckInterval = null;
@@ -221,6 +369,10 @@
                             
                             audio.src = actualStreamUrl;
                             initPlayerControls();
+                            // Metadata polls against the raw resolved URL, not the proxied one
+                            var rawResolvedUrl = streamUrls.length > 1 ? streamUrls[1] : streamUrls[0];
+                            rawResolvedUrl = fixShoutcastUrl(rawResolvedUrl);
+                            startMetadataPolling(rawResolvedUrl);
                         } else {
                             console.error('Admin: Could not find stream URL in playlist');
                             $player.find('.mbr-status-text').text('Invalid playlist');
@@ -393,6 +545,8 @@
             }
             
             initPlayerControls();
+            // For direct/HLS streams the raw streamUrl is already the real URL
+            startMetadataPolling(streamUrl);
             
             function initPlayerControls() {
             
@@ -463,6 +617,28 @@
             updatePreview();
         });
         
+        // Toggle appearance options greyed state based on skin selection
+        function updateAppearanceOptionsState() {
+            var skin = $('select[name="mbr_lrp_skin"]').val() || 'default';
+            if (skin === 'default') {
+                $('#mbr-default-skin-options').removeClass('mbr-options-disabled');
+                // Popout settings are only useful for non-default skins
+                $('#mbr-popout-settings-wrapper').addClass('mbr-options-disabled');
+            } else {
+                $('#mbr-default-skin-options').addClass('mbr-options-disabled');
+                $('#mbr-popout-settings-wrapper').removeClass('mbr-options-disabled');
+            }
+        }
+        
+        // Update when skin changes
+        $('select[name="mbr_lrp_skin"]').on('change', function() {
+            updatePreview();
+            updateAppearanceOptionsState();
+        });
+        
+        // Set correct state on page load
+        updateAppearanceOptionsState();
+        
         // Update preview when featured image changes
         $(document).on('click', '#set-post-thumbnail', function() {
             setTimeout(updatePreview, 500);
@@ -513,9 +689,101 @@
         $('input[name="mbr_lrp_dark_mode"], input[name="mbr_lrp_glassmorphism"]').on('change', function() {
             console.log('MBR Admin: Checkbox changed:', $(this).attr('name'), 'checked:', $(this).is(':checked'));
             updatePreview();
+            updateShortcodeDisplay();
         });
         
         console.log('MBR Admin: Checkboxes initialized, found:', $('input[name="mbr_lrp_dark_mode"], input[name="mbr_lrp_glassmorphism"]').length);
+        
+        // ── File Player Admin ────────────────────────────────────────────────
+        
+        // Mode toggle — show/hide stream URL vs track list, AND refresh preview
+        $('input[name="mbr_lrp_mode"]').on('change', function() {
+            var mode = $(this).val();
+            if (mode === 'files') {
+                $('#mbr-stream-url-row').hide();
+                $('#mbr-tracks-row').show();
+            } else {
+                $('#mbr-stream-url-row').show();
+                $('#mbr-tracks-row').hide();
+            }
+            updatePreview();
+        });
+        
+        // Track row template (used when adding new rows)
+        function buildTrackRow(index) {
+            return $('<div class="mbr-track-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:8px;">' +
+                '<span class="mbr-track-handle dashicons dashicons-menu" style="cursor:move;color:#999;flex-shrink:0;" title="Drag to reorder"></span>' +
+                '<input type="text" name="mbr_lrp_tracks[' + index + '][title]" value="" placeholder="Track title" style="flex:1;min-width:0;" class="regular-text" />' +
+                '<input type="url" name="mbr_lrp_tracks[' + index + '][url]" value="" placeholder="File URL" style="flex:2;min-width:0;" class="regular-text mbr-track-url" />' +
+                '<button type="button" class="button mbr-pick-file" style="flex-shrink:0;">Choose</button>' +
+                '<button type="button" class="button mbr-remove-track" style="flex-shrink:0;color:#a00;">&times;</button>' +
+            '</div>');
+        }
+        
+        // Re-index all track rows after add/remove/reorder
+        function reindexTracks() {
+            $('#mbr-tracks-list .mbr-track-row').each(function(i) {
+                $(this).find('input[type="text"]').attr('name', 'mbr_lrp_tracks[' + i + '][title]');
+                $(this).find('input[type="url"]').attr('name',  'mbr_lrp_tracks[' + i + '][url]');
+            });
+        }
+        
+        // Add track button
+        $('#mbr-add-track').on('click', function() {
+            var count = $('#mbr-tracks-list .mbr-track-row').length;
+            $('#mbr-tracks-list').append(buildTrackRow(count));
+            // No preview yet — no URL added
+        });
+        
+        // Remove track (delegated)
+        $('#mbr-tracks-list').on('click', '.mbr-remove-track', function() {
+            $(this).closest('.mbr-track-row').remove();
+            reindexTracks();
+            updatePreview();
+        });
+        
+        // Debounced preview refresh when track title or URL is typed
+        var trackInputTimer = null;
+        $('#mbr-tracks-list').on('input', 'input', function() {
+            clearTimeout(trackInputTimer);
+            trackInputTimer = setTimeout(updatePreview, 600);
+        });
+        
+        // Media library picker (delegated to handle dynamically added rows)
+        $('#mbr-tracks-list').on('click', '.mbr-pick-file', function() {
+            var $urlInput = $(this).siblings('.mbr-track-url');
+            var $titleInput = $(this).siblings('input[type="text"]');
+            
+            var frame = wp.media({
+                title: 'Select Audio File',
+                button: { text: 'Use this file' },
+                library: { type: 'audio' },
+                multiple: false
+            });
+            
+            frame.on('select', function() {
+                var attachment = frame.state().get('selection').first().toJSON();
+                $urlInput.val(attachment.url);
+                // Auto-fill title if empty
+                if (!$titleInput.val() && attachment.title) {
+                    $titleInput.val(attachment.title);
+                }
+                // Refresh preview now that we have a real URL
+                updatePreview();
+            });
+            
+            frame.open();
+        });
+        
+        // Drag-to-reorder using jQuery UI sortable
+        if ($.fn.sortable) {
+            $('#mbr-tracks-list').sortable({
+                handle: '.mbr-track-handle',
+                axis: 'y',
+                update: function() { reindexTracks(); updatePreview(); }
+            });
+        }
+        
     });
     
 })(jQuery);

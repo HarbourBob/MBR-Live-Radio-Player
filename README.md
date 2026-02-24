@@ -1,131 +1,183 @@
 # MBR Live Radio Player
 
-A beautiful, modern live radio player for WordPress with support for HLS streams, custom gradients, glassmorphism effects, and real-time metadata display.
+<div align="center">
 
-[![GitHub Release](https://img.shields.io/github/v/release/harbourbob/MBR-Live-Radio-Player)](https://github.com/harbourbob/MBR-Live-Radio-Player/releases)
-[![GitHub Downloads](https://img.shields.io/github/downloads/harbourbob/MBR-Live-Radio-Player/total)](https://github.com/harbourbob/MBR-Live-Radio-Player/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/harbourbob/MBR-Live-Radio-Player?style=social)](https://github.com/harbourbob/MBR-Live-Radio-Player)
-[![GitHub Forks](https://img.shields.io/github/forks/harbourbob/MBR-Live-Radio-Player?style=social)](https://github.com/harbourbob/MBR-Live-Radio-Player)
-[![GitHub Issues](https://img.shields.io/github/issues/harbourbob/MBR-Live-Radio-Player)](https://github.com/harbourbob/MBR-Live-Radio-Player/issues)
+![MBR Live Radio Player](https://img.shields.io/badge/MBR-Live%20Radio%20Player-667eea?style=for-the-badge&logo=radio&logoColor=white)
+
+**A beautiful, fully-featured audio player plugin for WordPress**  
+*Live radio streams · HLS · File player · Multi-station switching · Sticky player*
+
+[![WordPress Plugin Version](https://img.shields.io/badge/version-3.9.26-blue?style=flat-square&logo=wordpress)](https://github.com/harbourbob/mbr-live-radio-player/releases)
+[![WordPress Tested](https://img.shields.io/badge/WordPress-5.2%20–%206.8-21759b?style=flat-square&logo=wordpress&logoColor=white)](https://wordpress.org)
+[![PHP Version](https://img.shields.io/badge/PHP-7.2%2B-777bb4?style=flat-square&logo=php&logoColor=white)](https://php.net)
+[![License](https://img.shields.io/badge/license-GPL--2.0%2B-green?style=flat-square)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![GitHub Downloads](https://img.shields.io/github/downloads/harbourbob/mbr-live-radio-player/total?style=flat-square&color=brightgreen&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/harbourbob/mbr-live-radio-player?style=flat-square&color=yellow&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/harbourbob/mbr-live-radio-player?style=flat-square&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/issues)
+[![Maintained](https://img.shields.io/badge/maintained-actively-brightgreen?style=flat-square)](https://github.com/harbourbob/mbr-live-radio-player/commits/main)
+
+</div>
+
+---
+
+<div align="center">
+
+![MBR Live Radio Player Screenshot](mbr-radio-1.webp)
+
+</div>
 
 ---
 
 ## 📋 Table of Contents
 
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Customization](#customization)
-- [Shortcodes](#shortcodes)
-- [Supported Stream Formats](#supported-stream-formats)
-- [Browser Support](#browser-support)
-- [Frequently Asked Questions](#frequently-asked-questions)
-- [Changelog](#changelog)
-- [Support](#support)
-- [License](#license)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Player Modes](#-player-modes)
+- [Appearance & Skins](#-appearance--skins)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Shortcode Reference](#-shortcode-reference)
+- [Multi-Station Groups](#-multi-station-groups)
+- [Sticky Player](#-sticky-player)
+- [Stream Format Support](#-stream-format-support)
+- [Proxy & Mixed Content](#-proxy--mixed-content)
+- [Admin Preview](#-admin-preview)
+- [Browser Support](#-browser-support)
+- [FAQ](#-frequently-asked-questions)
+- [Changelog](#-changelog)
+- [Contributing](#-contributing)
+- [Support](#-support)
+- [License](#-license)
+
+---
+
+## 🎙️ Overview
+
+**MBR Live Radio Player** is a professional-grade WordPress plugin built for anyone who needs to embed audio on their website without compromise. Whether you're running a 24/7 internet radio station, streaming live church services, or publishing a podcast archive, this plugin delivers the right tool for the job.
+
+There are no premium tiers, no locked features, no upsells. Everything described here is included, free, forever.
+
+Built by [Little Web Shack](https://littlewebshack.com) and released under GPL-2.0+ — because good tools should be accessible to everyone.
 
 ---
 
 ## ✨ Features
 
-### Player Features
-- 🎵 **HLS Stream Support** - Play HTTP Live Streaming (HLS) formats with automatic fallback
-- 📻 **Multiple Stream Formats** - Support for MP3, AAC, OGG, and HLS streams
-- 📌 **Sticky Player** - Full-width player that stays fixed to top or bottom of viewport
-- 🎨 **Real-time Metadata** - Display current track information with automatic updates
-- 🖼️ **Album Artwork** - Show track artwork from streaming metadata
-- 🔊 **Volume Control** - Adjustable volume slider with mute functionality
-- ↗️ **Pop-out Player** - Open player in floating window for multitasking
-- 📱 **Fully Responsive** - Works beautifully on desktop, tablet, and mobile devices
+### 🎵 Audio Playback
+- **HLS (HTTP Live Streaming)** — adaptive bitrate streaming via bundled HLS.js (no CDN dependency)
+- **Shoutcast & Icecast** — full ICY metadata support with automatic stream URL detection from .m3u playlists
+- **MP3 / AAC / OGG / FLAC** — all browser-native audio formats supported
+- **File Player** — full-featured audio file player with progress bar, seek scrubbing, and playlist
+- **15-minute reconnection timer** — automatic preventive reconnection to avoid server-side timeout drops
 
-### Appearance Options
-- 🎨 **Custom Gradients** - Choose any colors with WordPress color picker
-- 🌈 **8 Preset Gradients** - Quick-select from beautiful pre-designed color schemes
-- 🔮 **Glassmorphism Effect** - Modern frosted glass aesthetic with blur and transparency
-- 🌓 **Dark Mode** - Elegant dark color scheme for low-light environments
-- ✨ **Multiple Style Combinations** - Mix and match effects for unique looks
+### 📻 Live Stream Features
+- Real-time now-playing metadata display with scrolling marquee
+- Animated status indicator (live dot) while streaming
+- SomaFM API integration for rich metadata on SomaFM stations
+- Automatic metadata polling with intelligent caching
 
-### Technical Features
-- ⚡ **Performance Optimized** - Minimal resource usage, GPU-accelerated effects
-- 🔄 **CORS Proxy** - Built-in proxy for streams that require CORS headers
-- 📊 **Metadata Caching** - Efficient caching system for stream metadata
-- 🔧 **HTML Entity Decoding** - Properly display apostrophes and special characters
-- 🎯 **WordPress Integration** - Native WordPress custom post types and settings API
+### 📁 File Player Features
+- Upload audio files directly from the WordPress Media Library
+- Multiple files per station, organised as a numbered playlist
+- Drag-and-drop reorder in the admin
+- Progress bar with click-to-seek and touch scrubbing
+- Rewind 15 seconds / Forward 15 seconds buttons
+- Auto-advance to next track on completion
+- Browseable track list panel (slide-up)
+- **Resume from last position** — localStorage saves exact position per track, per listener; clears automatically on completion
+
+### 🎛️ Player Controls
+- Play / Pause with animated loading spinner
+- Volume slider with mute toggle
+- Pop-out floating window — keeps audio playing while visitors browse elsewhere
+- Multi-station switcher panel — switch streams without leaving the page
+- Sticky player — docks to top or bottom of page, always accessible
+- Keyboard-accessible controls throughout
+
+### 🖼️ Appearance & Customisation
+- **6 professionally designed skins** — Default, Classic, Gradient Dark, Minimal, Retro, Slim Bar
+- Custom gradient colour picker with 8 built-in presets (Default skin)
+- Dark mode variant
+- Glassmorphism (frosted glass) variant — stunning over background images
+- Station artwork via WordPress Featured Image
+- Fully responsive — pixel-perfect on desktop, tablet, and mobile
+
+### ⚙️ Technical
+- **Live admin preview** — see exactly what visitors will see before publishing, with a fully interactive player inside the WordPress admin
+- Assets only enqueued on pages where a shortcode is present — zero performance impact elsewhere
+- Built-in CORS proxy for streams with cross-origin restrictions
+- Automatic HTTP→HTTPS proxy routing for mixed-content streams on HTTPS sites
+- Clean, documented code following WordPress coding standards throughout
+- No CDN dependencies — all JavaScript bundled locally
+
+---
+
+## 🎛️ Player Modes
+
+### Live Stream Mode
+
+Connect to any internet radio stream and the player handles everything: stream negotiation, format detection, metadata polling, and reconnection. Set the stream URL in the admin, publish, and embed the shortcode — that's it.
+
+Supports virtually every stream format in common use. If your stream plays in VLC, it will play in MBR Live Radio Player.
+
+### File Player Mode
+
+Switch any station into File Player mode in the admin and it becomes a polished audio file player — complete with progress bar, playlist, seek, skip controls, and position memory. Ideal for:
+
+- Podcast episode archives
+- Sermon recordings
+- Lecture or educational audio series
+- Music samples or demos
+
+Both modes share the same skins, colour options, artwork, and shortcode system.
+
+---
+
+## 🎨 Appearance & Skins
+
+Six skins are available for every station:
+
+| Skin | Description |
+|------|-------------|
+| **Default** | Clean modern card with customisable gradient and artwork |
+| **Classic** | Traditional bar layout with horizontal controls |
+| **Gradient Dark** | Rich dark background with gradient accent |
+| **Minimal** | Stripped back — just the essentials |
+| **Retro** | Warm retro-inspired aesthetic |
+| **Slim Bar** | Compact single-row bar, ideal for headers and footers |
+
+All skins support artwork, dark mode, glassmorphism, and responsive layout. The Default skin additionally supports custom gradient colours and 8 presets.
 
 ---
 
 ## 📦 Requirements
 
-### Minimum Requirements
-
-| Component | Requirement |
-|-----------|------------|
-| **WordPress** | 5.0 or higher |
-| **PHP** | 7.4 or higher |
-| **MySQL** | 5.6 or higher (or MariaDB 10.1+) |
-| **HTTPS** | Recommended for best compatibility |
-
-### Recommended Requirements
-
-| Component | Recommendation |
-|-----------|---------------|
-| **WordPress** | 6.0 or higher |
-| **PHP** | 8.0 or higher |
-| **MySQL** | 5.7 or higher (or MariaDB 10.3+) |
-| **Memory Limit** | 128 MB or higher |
-| **HTTPS** | Required for secure streaming |
-
-### Server Requirements
-
-- **PHP Extensions Required:**
-  - `curl` - For fetching stream metadata
-  - `json` - For JSON parsing
-  - `mbstring` - For character encoding
-  - `allow_url_fopen` - For stream proxy functionality
-
-- **WordPress Permissions:**
-  - Ability to create custom post types
-  - Ability to add rewrite rules
-  - Ability to enqueue scripts and styles
-
-### Browser Requirements
-
-| Browser | Minimum Version |
-|---------|----------------|
-| **Chrome** | 76+ |
-| **Firefox** | 103+ |
-| **Safari** | 9+ |
-| **Edge** | 79+ |
-| **Opera** | 63+ |
-
-**Note:** Internet Explorer is not supported.
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **WordPress** | 5.2 | 6.4+ |
+| **PHP** | 7.2 | 8.1+ |
+| **MySQL** | 5.6 | 8.0+ |
+| **PHP Extensions** | `curl`, `json` | + `mbstring` |
+| **HTTPS** | Recommended | Required for mixed-content streams |
 
 ---
 
 ## 🚀 Installation
 
-### Method 1: WordPress Admin (Recommended)
+### Method 1: Upload via WordPress Admin
 
-1. Download the plugin ZIP file
-2. Log in to your WordPress admin panel
-3. Navigate to **Plugins → Add New**
-4. Click **Upload Plugin** button at the top
-5. Choose the downloaded ZIP file
-6. Click **Install Now**
-7. Click **Activate Plugin**
-8. Go to **Settings → Permalinks** and click **Save Changes** (this is required for the pop-out player to work)
+1. Download the latest ZIP from [GitHub Releases](https://github.com/harbourbob/mbr-live-radio-player/releases)
+2. Go to **Plugins → Add New → Upload Plugin**
+3. Choose the ZIP file and click **Install Now**
+4. **Activate** the plugin
+5. Go to **Settings → Permalinks** and click **Save Changes** *(required to register the proxy and pop-out rewrite rules)*
 
-### Method 2: FTP Upload
+### Method 2: FTP
 
-1. Download and extract the plugin ZIP file
-2. Connect to your server via FTP
-3. Navigate to `/wp-content/plugins/`
-4. Upload the `mbr-live-radio-player` folder
-5. Log in to WordPress admin
-6. Go to **Plugins** and activate "MBR Live Radio Player"
-7. Go to **Settings → Permalinks** and click **Save Changes**
+1. Extract the ZIP and upload the `mbr-radio-player-live` folder to `/wp-content/plugins/`
+2. Activate via **Plugins** in WordPress admin
+3. Go to **Settings → Permalinks → Save Changes**
 
 ### Method 3: WP-CLI
 
@@ -134,660 +186,319 @@ wp plugin install mbr-live-radio-player.zip --activate
 wp rewrite flush
 ```
 
-### Post-Installation
-
-After activation, you should see:
-- New **"Radio Stations"** menu item in WordPress admin
-- Settings page accessible via **Radio Stations → Settings**
+> **Important:** Always flush permalink rules after installation, activation, or updates — either via **Settings → Permalinks → Save Changes** or `wp rewrite flush`. This registers the built-in proxy and pop-out player routes.
 
 ---
 
-## ⚙️ Configuration
+## ⚡ Quick Start
 
-### Initial Setup
+### 1. Create a station
 
-1. **Create Your First Station:**
-   - Go to **Radio Stations → Add New**
-   - Enter station name (e.g., "Classic Rock Radio")
-   - Add stream URL in the **Stream URL** field
-   - Optionally add station artwork (featured image)
-   - Click **Publish**
+Go to **Radio Stations → Add New**, give it a name, paste in your stream URL, and click **Publish**.
 
-2. **Configure Appearance:**
-   - Go to **Radio Stations → Settings**
-   - Choose your preferred appearance options:
-     - Enable/disable Dark Mode
-     - Enable/disable Glassmorphism
-     - Select custom gradient colors
-   - Click **Save Settings**
+### 2. Embed the player
 
-3. **Test Your Player:**
-   - Add the shortcode to any page or post:
-     ```
-     [mbr_radio_player id="123"]
-     ```
-     (Replace 123 with your station ID)
+Copy your station's post ID (visible in the URL when editing: `post=123`) and add the shortcode to any page, post, or widget:
 
-### Settings Explained
-
-#### Player Appearance
-
-**Dark Mode**
-- Switches player to dark color scheme
-- Better for low-light environments
-- Automatic white text on dark background
-
-**Glassmorphism Effect**
-- Modern frosted glass aesthetic
-- Background blur with transparency
-- Works with both light and dark modes
-- Best on pages with background images or colors
-
-**Gradient Background**
-- Customize start and end colors
-- 8 beautiful presets available
-- Only applies when Dark Mode and Glassmorphism are OFF
-- Uses CSS variables for smooth transitions
-
----
-
-## 📖 Usage
-
-### Creating a Radio Station
-
-1. Navigate to **Radio Stations → Add New**
-2. Fill in the required fields:
-
-   **Station Title** (Required)
-   - The name of your radio station
-   - Example: "Jazz FM 24/7"
-
-   **Stream URL** (Required)
-   - Direct URL to your radio stream
-   - Supports: MP3, AAC, OGG, HLS (.m3u8)
-   - Example: `https://example.com/stream.mp3`
-
-   **Featured Image** (Optional)
-   - Station logo or artwork
-   - Recommended size: 300x300px minimum
-   - Supports: JPG, PNG, WebP
-
-   **Stream Format** (Optional)
-   - Auto-detected from URL
-   - Manually specify if needed: mp3, aac, ogg, hls
-
-3. Click **Publish**
-
-### Adding Player to Your Site
-
-**Using Shortcode:**
-
-Regular inline player:
 ```
 [mbr_radio_player id="123"]
 ```
 
-Sticky player (stays fixed to top/bottom of screen):
+### 3. Done
+
+Your player is live. Visit the page and click play.
+
+---
+
+## 📝 Shortcode Reference
+
+### Standard Player
+
+```
+[mbr_radio_player id="123"]
+```
+
+Embeds the player inline, using whatever skin and settings are configured for that station.
+
+### Sticky Player
+
+```
+[mbr_radio_player id="123" sticky="true"]
+```
+
+Or use the dedicated sticky shortcode:
+
 ```
 [mbr_radio_player_sticky id="123"]
 ```
 
-**Sticky Player Setup:**
-1. Create and style your radio station (artwork, colors, stream URL)
-2. Go to **Radio Stations → Sticky Player**
-3. Choose position (top or bottom of page)
-4. Save settings
-5. Use the shortcode: `[mbr_radio_player_sticky id="123"]`
+Renders a full-width player docked to the top or bottom of the viewport. Position is set in **Radio Stations → Settings → Sticky Player**.
 
-The sticky player inherits all appearance settings (colors, artwork) from the station itself.
+### PHP Template Usage
 
-**Using Gutenberg Block:**
-1. Add a new block
-2. Search for "Shortcode"
-3. Insert: `[mbr_radio_player id="123"]` or `[mbr_radio_player_sticky id="123"]`
-
-**Using Classic Editor:**
-1. Switch to Text mode
-2. Insert: `[mbr_radio_player id="123"]`
-
-**Using PHP in Theme:**
 ```php
 <?php echo do_shortcode('[mbr_radio_player id="123"]'); ?>
 ```
 
-**Using Widget:**
-1. Go to **Appearance → Widgets**
-2. Add "Custom HTML" widget
-3. Insert: `[mbr_radio_player id="123"]`
+---
 
-### Finding Your Station ID
+## 📻 Multi-Station Groups
 
-**Method 1: In Station List**
-- Go to **Radio Stations → All Stations**
-- Hover over station name
-- Look at browser status bar (bottom left)
-- ID is in the URL: `post=123`
+Group multiple stations together so visitors can switch between streams without leaving the page. A station-switching panel slides up inside the player, listing all stations in the group with their artwork.
 
-**Method 2: When Editing**
-- Open the station for editing
-- Look at the browser URL
-- ID is after `post=`: `.../post.php?post=123&action=edit`
+**How to set up a group:**
+
+1. Create all your stations (each with its own stream URL and artwork)
+2. In the admin sidebar, go to **Radio Station Groups → Add New**
+3. Give the group a name and select which stations to include
+4. On your primary station, set the **Station Group** field to this group
+5. Use that station's shortcode — the switcher panel will appear automatically
+
+**Switching behaviour:**
+- Clicking a station in the list switches the stream immediately with no page reload
+- Artwork, metadata, and title all update to reflect the new station
+- The starting station is always available in the list — tap it to return after switching
+- The sticky player (if present) stays in sync
 
 ---
 
-## 🎨 Customization
+## 📌 Sticky Player
 
-### Appearance Combinations
+The sticky player docks to the top or bottom of every page on your site and keeps audio controls permanently accessible as visitors browse.
 
-The plugin offers multiple appearance options that can be combined:
+**Setup:**
 
-#### Classic Vibrant (Default)
-```
-☐ Dark Mode
-☐ Glassmorphism
-✓ Custom Gradient Colors
-```
-**Result:** Solid gradient with your custom colors
-**Best for:** Energetic content, bright pages
+1. Go to **Radio Stations → Settings → Sticky Player**
+2. Choose **Top** or **Bottom** position
+3. Select the station to use
+4. Save — the sticky player appears automatically site-wide
 
-#### Dark Elegance
-```
-✓ Dark Mode
-☐ Glassmorphism
-☐ Custom Gradient Colors
-```
-**Result:** Solid dark navy gradient
-**Best for:** Professional broadcasts, night mode
-
-#### Light Glass
-```
-☐ Dark Mode
-✓ Glassmorphism
-☐ Custom Gradient Colors
-```
-**Result:** Frosted glass with light transparency
-**Best for:** Modern sites, over background images
-
-#### Dark Glass (Premium Look)
-```
-✓ Dark Mode
-✓ Glassmorphism
-☐ Custom Gradient Colors
-```
-**Result:** Dark frosted glass effect
-**Best for:** Ultra-premium aesthetic, luxury brands
-
-### Custom Gradient Presets
-
-1. **Purple (Default)**
-   - Colors: `#667eea` → `#764ba2`
-   - Vibe: Vibrant, modern, energetic
-
-2. **Dark Navy**
-   - Colors: `#1a1a2e` → `#16213e`
-   - Vibe: Professional, sophisticated
-
-3. **Pink Sunset**
-   - Colors: `#f093fb` → `#f5576c`
-   - Vibe: Romantic, warm
-
-4. **Ocean Blue**
-   - Colors: `#4facfe` → `#00f2fe`
-   - Vibe: Fresh, calming
-
-5. **Mint Green**
-   - Colors: `#43e97b` → `#38f9d7`
-   - Vibe: Natural, energizing
-
-6. **Warm Flame**
-   - Colors: `#fa709a` → `#fee140`
-   - Vibe: Hot, attention-grabbing
-
-7. **Cosmic**
-   - Colors: `#30cfd0` → `#330867`
-   - Vibe: Mystical, dreamy
-
-8. **Cotton Candy**
-   - Colors: `#ff6e7f` → `#bfe9ff`
-   - Vibe: Sweet, playful
-
-### Custom CSS
-
-Add custom styling in your theme's CSS:
-
-```css
-/* Adjust player width */
-.mbr-radio-player {
-    max-width: 800px;
-}
-
-/* Customize button colors */
-.mbr-play-btn {
-    background: #your-color !important;
-}
-
-/* Modify text color */
-.mbr-player-title {
-    color: #your-color !important;
-}
-```
+The sticky player inherits all station settings (artwork, colours, skin) and continues playing through page navigation.
 
 ---
 
-## 📝 Shortcodes
+## 📡 Stream Format Support
 
-### Main Shortcode
+| Format | Details |
+|--------|---------|
+| **HLS (.m3u8)** | Adaptive bitrate via HLS.js — including BBC, UK DAB stations, and most major broadcasters |
+| **Shoutcast** | .m3u playlist detection, ICY metadata, auto stream URL resolution |
+| **Icecast** | Full ICY metadata headers, stream-name and stream-url extraction |
+| **MP3** | Direct HTTP/HTTPS streams |
+| **AAC / AAC+** | Direct HTTP/HTTPS streams |
+| **OGG Vorbis** | Browser-native support |
+| **Audio files** | MP3, AAC, OGG, FLAC, WAV via File Player mode |
 
-```
-[mbr_radio_player id="STATION_ID"]
-```
-
-**Parameters:**
-
-- `id` (required) - The ID of the radio station post
-
-**Examples:**
-
-Display station with ID 123:
-```
-[mbr_radio_player id="123"]
-```
-
-Display in a column:
-```
-<div class="my-column">
-    [mbr_radio_player id="123"]
-</div>
-```
-
-Multiple players on one page:
-```
-[mbr_radio_player id="123"]
-[mbr_radio_player id="456"]
-```
+If your stream plays in a browser or VLC, it will work with MBR Live Radio Player.
 
 ---
 
-## 📻 Supported Stream Formats
+## 🔒 Proxy & Mixed Content
 
-### Direct Streaming URLs
+Many internet radio streams still serve over HTTP. If your WordPress site is on HTTPS (which it should be), the browser will block HTTP audio as mixed content.
 
-**MP3 Streams**
-```
-https://example.com/stream.mp3
-https://example.com:8000/radio
-```
+MBR Live Radio Player includes a **built-in server-side proxy** that routes HTTP streams through your WordPress server, solving mixed-content blocking transparently — no configuration needed.
 
-**AAC Streams**
-```
-https://example.com/stream.aac
-https://example.com:8000/stream
-```
+The proxy also handles CORS issues for streams that don't send cross-origin headers.
 
-**OGG Streams**
-```
-https://example.com/stream.ogg
-```
+**How it works:**
+- HTTP stream URLs are automatically detected
+- On HTTPS sites, they are transparently routed through the plugin's proxy endpoint
+- HLS streams are fully supported — both the manifest and all segments are proxied correctly
+- Multi-station switching correctly re-evaluates each stream URL against the proxy on every switch
 
-### HLS (HTTP Live Streaming)
+> **Note:** The proxy adds a small amount of server load proportional to the number of simultaneous listeners. For high-traffic deployments, a dedicated streaming CDN is recommended.
 
-**M3U8 Playlists**
-```
-https://example.com/playlist.m3u8
-https://example.com/stream/index.m3u8
-```
+---
 
-**Features:**
-- Adaptive bitrate streaming
-- Automatic quality switching
-- Better buffering
-- Wide device compatibility
+## 🖥️ Admin Preview
 
-### Stream Providers Tested
+Every station has a **fully interactive live preview** in the WordPress admin. As you edit — change the skin, adjust colours, upload artwork, add tracks — the preview updates in real time. You can click play and listen before you publish.
 
-✅ **Icecast** - Full support with metadata
-✅ **SHOUTcast** - Full support with metadata
-✅ **Wowza** - HLS support
-✅ **SomaFM** - Full support with API integration
-✅ **Radio.co** - Full support
-✅ **Azuracast** - Full support
-✅ **Centova Cast** - Full support
-
-### Metadata Support
-
-The player automatically extracts and displays:
-- 🎵 Track title
-- 👤 Artist name
-- 💿 Album name
-- 🖼️ Album artwork (when available)
-
-Supported metadata formats:
-- Icecast metadata
-- SHOUTcast metadata
-- HLS ID3 tags
-- Custom API integrations
+This means:
+- No guessing what it will look like on the front end
+- Test your stream URL directly in the admin
+- Preview File Player playlists and verify track order before going live
+- See exactly how your chosen skin renders with your artwork and colours
 
 ---
 
 ## 🌐 Browser Support
 
-### Desktop Browsers
-
-| Browser | Support | Notes |
+| Browser | Minimum | Notes |
 |---------|---------|-------|
-| Chrome 76+ | ✅ Full | All features supported |
-| Firefox 103+ | ✅ Full | All features supported |
-| Safari 9+ | ✅ Full | All features supported |
-| Edge 79+ | ✅ Full | All features supported |
-| Opera 63+ | ✅ Full | All features supported |
-| IE 11 | ❌ No | Not supported |
+| **Chrome** | 76+ | Full support including HLS |
+| **Firefox** | 103+ | Full support including HLS |
+| **Safari** | 9+ | Native HLS support on Apple devices |
+| **Edge** | 79+ | Full support |
+| **Opera** | 63+ | Full support |
+| **iOS Safari** | 9+ | Native HLS, touch controls |
+| **Android Chrome** | 76+ | Full support |
 
-### Mobile Browsers
-
-| Browser | Support | Notes |
-|---------|---------|-------|
-| Chrome Mobile | ✅ Full | Pop-out opens in new tab |
-| Safari iOS | ✅ Full | Pop-out opens in new tab |
-| Firefox Mobile | ✅ Full | Pop-out opens in new tab |
-| Samsung Internet | ✅ Full | Pop-out opens in new tab |
-
-### Feature Support
-
-| Feature | Desktop | Mobile |
-|---------|---------|--------|
-| Stream Playback | ✅ | ✅ |
-| Volume Control | ✅ | ✅ |
-| Metadata Display | ✅ | ✅ |
-| Glassmorphism | ✅ | ✅ |
-| Pop-out Window | ✅ | ⚠️ New Tab |
-| HLS Streaming | ✅ | ✅ |
+Internet Explorer is not supported.
 
 ---
 
 ## ❓ Frequently Asked Questions
 
-### General Questions
+**Is this plugin completely free?**  
+Yes. No premium version, no feature locks, no upsells — ever.
 
-**Q: How do I find my station ID for the shortcode?**
-A: There are several easy ways to find your station ID:
+**Can I use multiple players on one page?**  
+Yes. Each shortcode is independently initialised. You can have as many players as you like, each with different stations and settings.
 
-**Method 1: In the Station List**
-1. Go to **Radio Stations → All Stations**
-2. Hover over your station name
-3. Look at the bottom left of your browser (status bar)
-4. The ID appears in the URL: `post=123` (123 is your ID)
+**My streams aren't playing after installation or update. What do I do?**  
+Go to **Settings → Permalinks** and click **Save Changes** without changing anything. Then hard-refresh your browser (Ctrl+Shift+F5 / Cmd+Shift+R on Mac). This flushes the rewrite rules that register the proxy and pop-out player endpoints. Do this after every install, update, or reactivation.
 
-**Method 2: When Editing a Station**
-1. Click to edit your station
-2. Look at the browser's address bar
-3. The ID is in the URL after `post=`: `.../post.php?post=123&action=edit`
-4. In this example, your station ID is `123`
+**The pop-out window shows a 404.**  
+Same fix — **Settings → Permalinks → Save Changes** to flush rewrite rules.
 
-**Method 3: Quick View**
-1. Go to **Radio Stations → All Stations**
-2. Hover over your station name
-3. The ID appears in the URL preview at the bottom of your screen
+**Why won't my BBC or UK DAB station play?**  
+BBC and many UK DAB stations serve HLS streams over HTTP. On an HTTPS site, browsers block these as mixed content. The plugin's built-in proxy handles this automatically — ensure **Proxy** is enabled in **Radio Stations → Settings**.
 
-Once you have the ID, use it in your shortcode:
-- Regular player: `[mbr_radio_player id="123"]`
-- Sticky player: `[mbr_radio_player_sticky id="123"]`
+**My stream plays but no metadata is showing.**  
+Metadata is extracted automatically from Icecast (ICY headers), Shoutcast (StreamTitle), and SomaFM (API). Some streams don't broadcast metadata at all. Check the browser console for polling errors.
 
-**Q: Is this plugin free?**
-A: Yes, the plugin is completely free and open source under GPL-2.0+ license.
+**Glassmorphism doesn't seem to be doing anything.**  
+Glassmorphism requires content behind the player. It looks best on pages with a background image or strong colour. Also requires Chrome 76+, Firefox 103+, or Safari 9+.
 
-**Q: Do I need coding knowledge to use this plugin?**
-A: No! The plugin is designed to be user-friendly with an intuitive admin interface.
+**Can I use this with Gutenberg, Elementor, or other page builders?**  
+Yes. Use any Shortcode block or HTML widget and insert `[mbr_radio_player id="123"]`.
 
-**Q: Can I use multiple players on one page?**
-A: Yes, you can add as many players as you want using different station IDs.
+**Does resume-from-position work across different devices?**  
+No — position is stored in the browser's localStorage, so it's per-device and per-browser. No server-side storage and no user accounts required.
 
-**Q: Does this work with Gutenberg?**
-A: Yes, use the Shortcode block and insert the player shortcode.
-
-**Q: After installing/reinstalling the plugin, my streams don't play and I see "format not supported" errors. What's wrong?**
-A: This happens because WordPress needs to refresh its URL rewrite rules for the plugin's proxy system to work. Simply go to Settings → Permalinks and click Save Changes (you don't need to change anything). Then do a hard refresh of your browser (Ctrl+Shift+F5 or Cmd+Shift+R on Mac). Your streams should work perfectly after this!
-Note: You should do this whenever you:
-
-Install or reinstall the plugin
-Activate the plugin after deactivation
-Update to a new version
-
-### Technical Questions
-
-**Q: Why do I get a 404 error when clicking the pop-out button?**
-A: Go to **Settings → Permalinks** and click **Save Changes** to flush rewrite rules.
-
-**Q: My stream isn't playing. What should I check?**
-A: Verify:
-1. Stream URL is correct and accessible
-2. Your site uses HTTPS (required for many streams)
-3. Stream is actually live and broadcasting
-4. Check browser console for error messages
-
-**Q: How do I get metadata to display?**
-A: Metadata is automatically extracted from:
-- Icecast streams (stream-name and stream-url headers)
-- SHOUTcast streams (StreamTitle)
-- HLS streams (ID3 tags)
-- Custom APIs (like SomaFM)
-
-**Q: Can I customize the player colors?**
-A: Yes! Go to **Radio Stations → Settings** and use the gradient color pickers or choose from 8 presets.
-
-**Q: Does this support HTTPS streams?**
-A: Yes, HTTPS streams are fully supported and recommended.
-
-**Q: Why isn't glassmorphism showing?**
-A: Glassmorphism requires:
-- Modern browser (Chrome 76+, Firefox 103+, Safari 9+)
-- Background content behind the player (works best over images/colors)
-- The option enabled in settings
-
-**Q: Can I use my own domain for streaming?**
-A: Yes, but ensure your stream server sends proper CORS headers or enable the built-in proxy.
-
-### Troubleshooting
-
-**Q: Player shows but doesn't play**
-A: Check:
-1. Stream URL is correct
-2. Stream is currently live
-3. Browser console for errors
-4. CORS/mixed content issues (HTTP vs HTTPS)
-
-**Q: Metadata shows HTML entities (like `&#039;`)**
-A: Update to version 3.1.1 or higher which includes HTML entity decoding.
-
-**Q: Custom colors don't save**
-A: Ensure you:
-1. Click "Save Settings" button
-2. Wait for success message
-3. Hard refresh browser (Ctrl+Shift+R)
-
-**Q: Pop-out window is blank**
-A: Go to **Settings → Permalinks** → **Save Changes** to flush rewrite rules.
+**Is this plugin GDPR compliant?**  
+The plugin only uses localStorage for the optional resume-from-position feature in File Player mode, and only when the listener has interacted with the player. No data is sent to third parties. No cookies are set.
 
 ---
 
 ## 📋 Changelog
 
-### Version 3.7.8 (Current)
-- **Added** sticky player feature with full-width layout
-- **Added** sticky player settings page (position: top/bottom)
-- **Added** new shortcode: `[mbr_radio_player_sticky id="123"]`
-- **Improved** sticky player inherits all station appearance settings
-- **Fixed** layout and button positioning for sticky player
-- **Fixed** close button visibility with X icon
+### 3.9.26
+- **Fixed** Multi-station HLS proxy — HTTP streams now correctly proxied on station switch regardless of the starting station's protocol
 
-### Version 3.5.0
-- **Removed** preview from settings page
-- **Improved** settings page layout
+### 3.9.25
+- **Removed** Track artwork overlay feature — standard Icecast/Shoutcast metadata does not carry artwork; the feature was producing visual artefacts
 
-### Version 3.2.9
-- **Added** live preview color updates in settings
-- **Improved** preset button functionality
+### 3.9.23
+- **Fixed** Station list scroll clipped by parent `overflow: hidden` — JS now toggles `overflow: visible` on open and closed states
 
-### Version 3.2.8
-- **Fixed** screen ID mismatch preventing JavaScript from loading
-- **Fixed** color picker and preset buttons now working correctly
+### 3.9.19 – 3.9.22
+- **Fixed** Station list scrollbar positioning and panel overflow across multiple CSS/HTML iterations
+- **Improved** Slim 4px custom scrollbar, `overscroll-behavior: contain`, touch scroll support
 
-### Version 3.2.1
-- **Fixed** critical syntax error (duplicate function)
+### 3.9.17
+- **Fixed** Premier/starting station now clickable in the switcher after switching away
 
-### Version 3.2.0
-- **Added** custom gradient background colors
-- **Added** WordPress color picker integration
-- **Added** 8 beautiful preset gradients
-- **Added** CSS variables for gradient customization
+### 3.9.16
+- **Fixed** Sticky player stripped of `data-station-group` before init — prevents phantom switcher panel intercepting clicks on the main multi-station player
 
-### Version 3.1.1
-- **Fixed** metadata truncation at apostrophes
-- **Added** HTML entity decoder for metadata display
-- **Improved** support for special characters in track titles
+### 3.9.14 – 3.9.15
+- **Fixed** Station artwork `querySelector` scoped correctly — prevented sticky player's element being updated instead of the main player
 
-### Version 3.1.0
-- **Added** glassmorphism effect option
-- **Added** frosted glass aesthetic with backdrop blur
-- **Added** glassmorphism compatibility with dark mode
-- **Added** enhanced shadows and borders
+### 3.9.12 – 3.9.13
+- **Fixed** Artwork wrapper always rendered in DOM (hidden when empty) so JS always has a target element
 
-### Version 3.0.9
-- **Added** dark mode theme option
-- **Added** settings page for appearance customization
-- **Improved** contrast ratios for accessibility
+### 3.9.11
+- **Fixed** Autoplay blocking — `intendingToPlay` guard prevents premature play attempts
+- **Added** localStorage resume-from-position (GDPR-aware) for File Player mode
+- **Added** Admin preview for File Player mode
 
-### Version 3.0.8
-- **Improved** pop-out player window size (reduced height)
-- **Optimized** compact layout for better UX
+### 3.9.5 – 3.9.10
+- **Added** File Player mode — progress bar, seek, rewind/forward, auto-advance playlist, Media Library integration
 
-### Version 3.0.7
-- **Improved** pop-out player dimensions
-- **Fixed** window sizing for better visibility
+### 3.9.4
+- **Fixed** HLS stream switching — streams now correctly tear down and reinitialise on station switch
 
-### Version 3.0.6
-- **Fixed** pop-out button icon visibility
-- **Fixed** 404 errors for popup URLs
-- **Added** admin notice for permalink flushing
+### 3.9.3
+- **Fixed** Mixed-content blocking for HTTP HLS streams on HTTPS sites
 
-### Version 3.0.5
-- **Added** pop-out player functionality
-- **Added** floating window capability
-- **Added** dedicated popup template
-- **Improved** multitasking support
+### 3.9.0 – 3.9.2
+- **Added** Multi-station group support with slide-up station switcher
+- **Added** Station artwork updates on switch
+- **Added** Six visual skins
 
-### Version 3.0.0
-- **Added** HLS stream support
-- **Added** real-time metadata display
-- **Added** SomaFM API integration
-- **Added** metadata caching system
-- **Improved** stream compatibility
+### 3.8.8
+- **Added** Visual skins, metadata polling improvements, popout player improvements, classic skin resize
 
----
+### 3.7.8
+- **Added** Sticky player with top/bottom position option and dedicated shortcode
 
-## 💬 Support
+### 3.5.0
+- **Improved** Settings page layout
 
-### Getting Help
+### 3.2.0
+- **Added** Custom gradient colour picker with 8 presets and WordPress colour picker integration
 
-**Documentation:**
-- Full documentation included in plugin files
-- README files in `/mnt/user-data/outputs/`
+### 3.1.1
+- **Fixed** Metadata truncation at apostrophes and special characters
 
-**Community Support:**
-- WordPress.org forums (coming soon)
-- GitHub Issues (coming soon)
+### 3.1.0
+- **Added** Glassmorphism (frosted glass) effect
 
-**Professional Support:**
-- Email: support@madebyrobert.co.uk
-- Website: https://madebyrobert.co.uk
+### 3.0.9
+- **Added** Dark mode
 
-### Reporting Bugs
+### 3.0.5
+- **Added** Pop-out floating player window
 
-When reporting bugs, please include:
-1. WordPress version
-2. PHP version
-3. Plugin version
-4. Browser and version
-5. Steps to reproduce
-6. Error messages from browser console
-7. Screenshots if applicable
-
-### Feature Requests
-
-We welcome feature requests! Please provide:
-1. Detailed description of the feature
-2. Use case / why it's needed
-3. Examples from other plugins/sites
-4. Mockups if applicable
-
----
-
-## 📄 License
-
-This plugin is licensed under the GPL v2 or later.
-
-```
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
-```
-
----
-
-## 👨‍💻 Credits
-
-**Developed by:** Little Web Shack  
-**Website:** https://littlewebshack.com
-**Version:** 3.7.8  
-**Last Updated:** December 2025  
-
-### Third-Party Libraries
-
-- **HLS.js** - For HLS stream support
-- **WordPress Color Picker** - For gradient customization
-- Built on WordPress core functionality
-
----
-
-## 🎯 Roadmap
-
-Planned features for future releases:
-
-- [ ] Multiple station playlist support
-- [ ] Equalizer visualization
-- [ ] Favorites/bookmarking system
-- [ ] Social sharing integration
-- [ ] Keyboard shortcuts
-- [ ] Accessibility improvements (WCAG 2.1 AA)
-- [ ] More preset gradients
-- [ ] Schedule-based streaming
-- [ ] Analytics integration
-- [ ] Multi-language support
+### 3.0.0
+- **Added** HLS stream support via HLS.js, real-time metadata, SomaFM API, metadata caching
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you'd like to contribute:
+Contributions are welcome and appreciated. If you've found a bug, have an idea, or want to improve something:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+1. **Fork** the repository
+2. **Create a branch** — `git checkout -b fix/your-fix-name`
+3. **Make your changes**, following [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/)
+4. **Submit a pull request** with a clear description of what changed and why
 
-Please follow WordPress coding standards and include documentation for new features.
+For bug reports, please include: WordPress version, PHP version, plugin version, browser, steps to reproduce, and any relevant console output.
+
+For feature requests, open a GitHub Issue describing what you're trying to achieve and why the current plugin doesn't address it.
 
 ---
 
-**Made with ❤️ by Little Web Shack**
+## 💬 Support
 
-For more WordPress plugins and themes, visit [Little Web Shack](https://littlewebshack.com)
+| Channel | Details |
+|---------|---------|
+| 🐛 **Bug Reports** | [GitHub Issues](https://github.com/harbourbob/mbr-live-radio-player/issues) |
+| 💡 **Feature Requests** | [GitHub Issues](https://github.com/harbourbob/mbr-live-radio-player/issues) |
+| 🌐 **Website** | [littlewebshack.com](https://littlewebshack.com) |
+| 📧 **Email** | support@madebyrobert.co.uk |
+| 👨‍💻 **Developer** | [madebyrobert.co.uk](https://madebyrobert.co.uk) |
+
+---
+
+## 📄 License
+
+MBR Live Radio Player is free software, released under the [GNU General Public License v2.0 or later](https://www.gnu.org/licenses/gpl-2.0.html).
+
+You are free to use, modify, and distribute this plugin in accordance with that licence.
+
+---
+
+## 🙏 Credits
+
+Developed with care by **Robert Palmer** at [Little Web Shack](https://littlewebshack.com), Cleethorpes, England.
+
+**Third-party libraries:**
+- [HLS.js](https://github.com/video-dev/hls.js/) — MIT Licence — bundled locally, no CDN
+- WordPress Color Picker — bundled with WordPress core
+
+---
+
+<div align="center">
+
+**Made with ❤️ in Cleethorpes, England**
+
+[littlewebshack.com](https://littlewebshack.com) · [madebyrobert.co.uk](https://madebyrobert.co.uk)
+
+*No premium version. No upsells. Just a good plugin.*
+
+</div>
