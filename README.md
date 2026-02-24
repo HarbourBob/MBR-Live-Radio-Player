@@ -470,7 +470,7 @@ For feature requests, open a GitHub Issue describing what you're trying to achie
 | 🐛 **Bug Reports** | [GitHub Issues](https://github.com/harbourbob/mbr-live-radio-player/issues) |
 | 💡 **Feature Requests** | [GitHub Issues](https://github.com/harbourbob/mbr-live-radio-player/issues) |
 | 🌐 **Website** | [littlewebshack.com](https://littlewebshack.com) |
-| 📧 **Email** | support@madebyrobert.co.uk |
+| 📧 **Email** | info@madebyrobert.co.uk |
 | 👨‍💻 **Developer** | [madebyrobert.co.uk](https://madebyrobert.co.uk) |
 
 ---
