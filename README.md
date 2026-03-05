@@ -11,8 +11,6 @@
 [![WordPress Tested](https://img.shields.io/badge/WordPress-5.2%20–%206.8-21759b?style=flat-square&logo=wordpress&logoColor=white)](https://wordpress.org)
 [![PHP Version](https://img.shields.io/badge/PHP-7.2%2B-777bb4?style=flat-square&logo=php&logoColor=white)](https://php.net)
 [![License](https://img.shields.io/badge/license-GPL--2.0%2B-green?style=flat-square)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![GitHub Downloads](https://img.shields.io/github/downloads/harbourbob/mbr-live-radio-player/total?style=flat-square&color=brightgreen&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/harbourbob/mbr-live-radio-player?style=flat-square&color=yellow&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/harbourbob/mbr-live-radio-player?style=flat-square&logo=github)](https://github.com/harbourbob/mbr-live-radio-player/issues)
 [![Maintained](https://img.shields.io/badge/maintained-actively-brightgreen?style=flat-square)](https://github.com/harbourbob/mbr-live-radio-player/commits/main)
 
