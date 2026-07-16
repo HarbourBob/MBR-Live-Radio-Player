@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: MBR Live Radio Player
- * Plugin URI: https://robertp419.sg-host.com/radio/
+ * Plugin URI: https://littlewebshack.com/radio/
  * Description: Beautiful, modern live radio player for WordPress. Create unlimited radio stations with custom artwork and HLS stream support.
- * Version: 3.9.26
+ * Version: 3.9.27
  * Author: Robert Palmer
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-live-radio-player
@@ -41,7 +41,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 
 
 // Define plugin constants
-define( 'MBR_LRP_VERSION', '3.9.26' );
+define( 'MBR_LRP_VERSION', '3.9.27' );
 define( 'MBR_LRP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -195,3 +195,28 @@ function mbr_lrp_deactivate() {
     flush_rewrite_rules();
 }
 register_deactivation_hook( __FILE__, 'mbr_lrp_deactivate' );
+
+/**
+ * Plugin Update Checker
+ * Manifest: https://raw.githubusercontent.com/HarbourBob/mbr-updates/main/mbr-live-radio-player.json
+ */
+if ( ! function_exists( 'mbr_lrp_init_update_checker' ) ) {
+	function mbr_lrp_init_update_checker() {
+		$puc = __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+		if ( ! file_exists( $puc ) ) {
+			return;
+		}
+		require_once $puc;
+
+		if ( ! class_exists( '\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory' ) ) {
+			return;
+		}
+
+		\YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+			'https://raw.githubusercontent.com/HarbourBob/mbr-updates/main/mbr-live-radio-player.json',
+			__FILE__,
+			'mbr-live-radio-player'
+		);
+	}
+}
+mbr_lrp_init_update_checker();

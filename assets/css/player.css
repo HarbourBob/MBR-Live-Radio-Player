@@ -2862,3 +2862,18 @@
     background: rgba(0,0,0,0.14);
     color: rgba(0,0,0,0.85);
 }
+
+/* ============================================
+   Mobile: hide station title + "now playing" status
+   on the DEFAULT player only (skins & file mode unaffected).
+   Stops the info text being squeezed on small screens.
+   ============================================ */
+@media (max-width: 600px) {
+    .mbr-radio-player:not([class*="mbr-skin-"]):not(.mbr-mode-files) .mbr-player-info {
+        display: none !important;
+    }
+    /* Keep the bar balanced: artwork left, controls right */
+    .mbr-radio-player:not([class*="mbr-skin-"]):not(.mbr-mode-files) .mbr-player-controls {
+        margin-left: auto;
+    }
+}
