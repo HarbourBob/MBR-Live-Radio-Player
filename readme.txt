@@ -19,6 +19,8 @@ MBR Live Radio Player is a powerful yet straightforward WordPress plugin for emb
 
 Every player is built and previewed live inside the WordPress admin — choose your skin, set your colours, upload artwork, and see exactly what your visitors will see before you publish.
 
+A comprehensive User Guide (PDF) is bundled in the Zip file.
+
 = Two Player Modes =
 
 **Live Stream Mode**
