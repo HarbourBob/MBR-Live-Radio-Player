@@ -6,7 +6,7 @@
 
 ### Gorgeous live radio for WordPress. Free. Forever. No catch.
 
-![Version](https://img.shields.io/badge/version-3.11.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.12.6-blue.svg)
 ![WordPress](https://img.shields.io/badge/WordPress-5.2%2B-blue.svg)
 ![Tested](https://img.shields.io/badge/tested%20up%20to-7.0-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.2%2B-purple.svg)
@@ -18,11 +18,25 @@ Most WordPress audio players look like they were designed in 2009. This one does
 
 No subscriptions. No "pro" tier waiting in the wings. No data harvesting. Built by one developer in Cleethorpes, UK, who just wanted radio streaming that works.
 
-**[⬇️ Download v3.11.0](https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.11.0.zip)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
+**[⬇️ Download v3.12.6](https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.6.zip)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
 
 ---
 
-## 🆕 New in 3.11.0 — Track artwork that actually turns up
+## 🔒 3.12.6 is a security release
+
+If you're running 3.12.2 or earlier, **please update**.
+
+An obsolete proxy file (`proxy-stream-v2.php`) was being shipped inside the plugin folder. Nothing called it — it was left over from an older approach — but it sat there reachable over the web with no authentication and no address validation, meaning it could be used to make requests from your server to anywhere, including your own internal network. It's gone.
+
+Alongside that: TLS certificate verification is back on for every outbound connection, redirects are re-validated at every hop instead of being followed blindly, artwork URLs supplied by the *broadcaster* are now validated before your server contacts them, and full stream URLs are no longer written to the PHP error log (they can carry access tokens).
+
+There are also some sensible new limits — proxied streams cap at two hours instead of running indefinitely, and each listener gets three simultaneous streams. That one matters most on shared hosting. Both are filterable.
+
+Nothing about how the player looks or behaves has changed. It's a straight security update.
+
+---
+
+## 🆕 New in 3.11 — Track artwork that actually turns up
 
 Here's the thing about radio metadata: nearly every station broadcasts the song title, and almost **none** of them broadcast the album art. You get "Rita Ora - Your Song" and a blank space where the cover should be.
 
@@ -64,7 +78,14 @@ The player always shows the best thing it has:
 
 Jingles, adverts and the news won't match a song, so the artwork simply falls back to your station logo until the music returns.
 
-**Also in this release:** artwork now survives image-optimisation plugins that rewrite `srcset` and `<picture>` tags, logged-in admins are exempt from metadata rate limiting (so testing your own site can't lock you out), and station artwork swaps reliably across every player type.
+**Also in 3.11.x:**
+
+- 🔇 **Ad breaks handled properly** — most stations blank their metadata during adverts and news. The player now spots this and falls back to your station name and logo, instead of leaving a song that finished ten minutes ago on screen. It restores the moment music returns.
+- 🚦 **A nasty rate-limiting bug squashed** — listeners were being cut off from now-playing data after about 15 minutes of continuous listening. WordPress transients reset their expiry when you write to them, so the rate "window" never rolled over and quietly became a lifetime quota. Both windows are now fixed periods, and the hourly ceiling is high enough for a whole office sharing one IP.
+- 🖼️ **Artwork survives image-optimisation plugins** that rewrite images with `srcset` or `<picture>` tags.
+- 🔁 **Station artwork swaps reliably** across every player type.
+- ⏱️ **Faster updates** — metadata polls every 20 seconds, so track changes and advert breaks show up promptly.
+- 🔉 **Sensible default volume** — playback starts at 25% rather than blasting out at full tilt.
 
 ---
 
@@ -159,6 +180,9 @@ Artwork needs a song title to look up. Stations broadcasting ICY metadata (most 
 **My artwork isn't changing between stations!**
 Almost always an image-optimisation plugin serving a stale cache or rewriting images with `srcset`. Clear its cache. Version 3.10.3+ defends against this, but a stale optimised cache can still linger.
 
+**My now-playing info used to stop after a while — is that fixed?**
+Yes, in 3.11.2. A rate-limiting bug cut listeners off from metadata after roughly 15 minutes of continuous listening. Update and it stays running all day.
+
 **How do updates work without WordPress.org?**
 The plugin checks a GitHub-hosted manifest via Plugin Update Checker. When a new version ships, it appears on your Plugins screen like any other update — one click to install.
 
@@ -186,4 +210,4 @@ GPL-2.0-or-later. Use it, fork it, ship it on client sites — it's yours.
 
 ---
 
-<p align="center"><strong><a href="https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.11.0.zip">⬇️ Download MBR Live Radio Player v3.11.0</a></strong><br>Free. Forever. No catch.</p>
+<p align="center"><strong><a href="https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.6.zip">⬇️ Download MBR Live Radio Player v3.12.6</a></strong><br>Free. Forever. No catch.</p>

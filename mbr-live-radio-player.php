@@ -3,14 +3,14 @@
  * Plugin Name: MBR Live Radio Player
  * Plugin URI: https://littlewebshack.com/radio/
  * Description: Beautiful, modern live radio player for WordPress. Create unlimited radio stations with custom artwork and HLS stream support.
- * Version: 3.9.27
+ * Version: 3.12.6
  * Author: Robert Palmer
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-live-radio-player
  * Domain Path: /languages
  * Requires at least: 5.2
  * Requires PHP: 7.2
- * Tested up to: 6.8
+ * Tested up to: 7.0
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
@@ -41,7 +41,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 
 
 // Define plugin constants
-define( 'MBR_LRP_VERSION', '3.9.27' );
+define( 'MBR_LRP_VERSION', '3.12.6' );
 define( 'MBR_LRP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

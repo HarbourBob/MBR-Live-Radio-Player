@@ -16,9 +16,175 @@
         }
     }
     
+    /**
+     * Swap an <img> source reliably.
+     *
+     * Optimisation plugins commonly add a `srcset` (for WebP/responsive
+     * variants) or wrap the image in <picture><source srcset="..."></picture>.
+     * The browser gives those PRIORITY over `src`, so simply assigning
+     * img.src leaves the old picture on screen even though the DOM looks
+     * correct. Lazy-loaders add their own data-* attributes too. This clears
+     * all of them so the new URL actually renders.
+     *
+     * Pass an empty url to blank the image.
+     */
+    function setImageSource(img, url) {
+        if (!img) return;
+
+        // Neutralise any <picture> siblings that would win over src
+        var parent = img.parentElement;
+        if (parent && parent.tagName === 'PICTURE') {
+            var sources = parent.querySelectorAll('source');
+            for (var i = 0; i < sources.length; i++) {
+                if (url) {
+                    sources[i].setAttribute('srcset', url);
+                } else {
+                    sources[i].removeAttribute('srcset');
+                }
+            }
+        }
+
+        // Clear responsive / lazy-load attributes on the image itself
+        ['srcset', 'sizes', 'data-src', 'data-srcset', 'data-lazy-src',
+         'data-lazy-srcset', 'data-original'].forEach(function(attr) {
+            if (img.hasAttribute(attr)) img.removeAttribute(attr);
+        });
+
+        if (url) {
+            img.src = url;
+        } else {
+            img.removeAttribute('src');
+        }
+    }
+
+    /**
+     * Artwork lightbox — click or tap any player artwork to view it large.
+     * One modal is shared by every player on the page.
+     */
+    var mbrArtModal = null;
+
+    function getArtModal() {
+        if (mbrArtModal) return mbrArtModal;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'mbr-art-modal';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Artwork');
+        overlay.innerHTML =
+            '<div class="mbr-art-modal-inner">' +
+                '<button type="button" class="mbr-art-modal-close" aria-label="Close artwork">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">' +
+                    '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+                '</button>' +
+                '<img src="" alt="" class="mbr-art-modal-img" />' +
+                '<p class="mbr-art-modal-caption"></p>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        var closeBtn = overlay.querySelector('.mbr-art-modal-close');
+        closeBtn.addEventListener('click', closeArtModal);
+
+        // Click the backdrop (but not the image itself) to dismiss
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay || e.target.classList.contains('mbr-art-modal-inner')) {
+                closeArtModal();
+            }
+        });
+
+        mbrArtModal = overlay;
+        return overlay;
+    }
+
+    var mbrArtLastFocus = null;
+
+    function openArtModal(url, caption) {
+        if (!url) return;
+        var overlay = getArtModal();
+        var img = overlay.querySelector('.mbr-art-modal-img');
+        var cap = overlay.querySelector('.mbr-art-modal-caption');
+
+        setImageSource(img, url);
+        img.alt = caption || 'Artwork';
+        cap.textContent = caption || '';
+        cap.style.display = caption ? '' : 'none';
+
+        mbrArtLastFocus = document.activeElement;
+        overlay.classList.add('mbr-art-modal--open');
+        document.body.classList.add('mbr-art-modal-lock');
+        overlay.querySelector('.mbr-art-modal-close').focus();
+    }
+
+    function closeArtModal() {
+        if (!mbrArtModal) return;
+        mbrArtModal.classList.remove('mbr-art-modal--open');
+        document.body.classList.remove('mbr-art-modal-lock');
+        if (mbrArtLastFocus && typeof mbrArtLastFocus.focus === 'function') {
+            mbrArtLastFocus.focus();
+        }
+        mbrArtLastFocus = null;
+    }
+
+    // Escape closes the modal from anywhere
+    document.addEventListener('keydown', function(e) {
+        if ((e.key === 'Escape' || e.key === 'Esc') && mbrArtModal &&
+            mbrArtModal.classList.contains('mbr-art-modal--open')) {
+            closeArtModal();
+        }
+    });
+
+    /**
+     * Make a player's artwork panel open the modal. Shows the track artwork
+     * when one is displayed, otherwise the station's own (full-size) logo.
+     */
+    function initArtworkModal(playerElement) {
+        var wrappers = playerElement.querySelectorAll('.mbr-player-artwork, .mbr-sticky-artwork');
+        if (!wrappers.length) return;
+
+        // A tiny pop-out window has no room for a lightbox
+        if (document.body.classList.contains('mbr-popup-body')) return;
+
+        Array.prototype.forEach.call(wrappers, function(wrapper) {
+            if (wrapper.dataset.mbrArtModalBound === '1') return;
+            wrapper.dataset.mbrArtModalBound = '1';
+
+            wrapper.classList.add('mbr-artwork-clickable');
+            wrapper.setAttribute('tabindex', '0');
+            wrapper.setAttribute('role', 'button');
+            wrapper.setAttribute('aria-label', 'View artwork larger');
+
+            function activate() {
+                var trackArt = wrapper.querySelector('.mbr-track-art');
+                var stationArt = wrapper.querySelector('.mbr-station-art');
+                var url = '';
+                var caption = '';
+
+                // Prefer the currently visible track artwork
+                if (trackArt && trackArt.classList.contains('active') && trackArt.getAttribute('src')) {
+                    url = trackArt.getAttribute('src');
+                    var np = playerElement.querySelector('.mbr-now-playing, .mbr-now-playing-text');
+                    caption = np ? np.textContent.replace(/^[♫\s]*(Now Playing:)?\s*/, '').trim() : '';
+                } else if (stationArt && stationArt.getAttribute('src')) {
+                    url = stationArt.getAttribute('data-art-full') || stationArt.getAttribute('src');
+                    var titleEl = playerElement.querySelector('.mbr-player-title, .mbr-sticky-title');
+                    caption = titleEl ? titleEl.textContent.trim() : '';
+                }
+
+                openArtModal(url, caption);
+            }
+
+            wrapper.addEventListener('click', activate);
+            wrapper.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    activate();
+                }
+            });
+        });
+    }
+
     // Fix Shoutcast URLs that point to server root
-    function fixShoutcastUrl(url) {
-        try {
+    function fixShoutcastUrl(url) {        try {
             var urlObj = new URL(url);
             
             // Check if this looks like a Shoutcast base URL (has port, no path or root path)
@@ -724,6 +890,91 @@
         var trackArtElement = playerElement.querySelector('.mbr-track-art');
         var lastMetadataTitle = '';
         
+        // We revert to the station's own name and artwork whenever we stop
+        // knowing what is playing. That covers two cases which look identical
+        // to a listener: the stream reporting no track (ad break, news, jingle)
+        // and us being unable to ask (rate limit, proxy error, network drop).
+        // Leaving the last song on screen through either is simply wrong - it
+        // finished minutes ago.
+        //
+        // A reset needs consecutive unknowns, because one blip should not make
+        // the player flicker. 2 polls x 30s = ~60s, so short jingles and single
+        // failed requests are ridden out, while real breaks and sustained
+        // rate-limiting are caught.
+        // An empty title is the stream telling us there is no track, which we
+        // trust immediately. A failed request tells us nothing, so those still
+        // need to repeat before we act on them.
+        var EMPTY_POLLS_BEFORE_RESET = 1;
+        var ERROR_POLLS_BEFORE_RESET = 2;
+        var unknownMetadataCount = 0;
+        var metadataIsCleared = false;
+        
+        // Never show a broken image - if artwork fails to load, hide it
+        if (trackArtElement) {
+            trackArtElement.addEventListener('error', function() {
+                trackArtElement.style.display = 'none';
+                trackArtElement.classList.remove('active');
+            });
+        }
+        
+        /**
+         * Return the player to its "no track playing" state: station name in
+         * the marquee, track artwork removed so the station logo shows again.
+         */
+        function resetMetadataDisplay() {
+            var stationName = '';
+            var titleEl = playerElement.querySelector('.mbr-player-title, .mbr-sticky-title');
+            if (titleEl) stationName = titleEl.textContent.trim();
+            
+            if (marqueeElement) {
+                marqueeElement.textContent = stationName ? '\u266b ' + stationName + ' ' : '';
+                var mc = marqueeElement.parentElement;
+                if (mc) {
+                    mc.style.animation = 'none';
+                    setTimeout(function() { mc.style.animation = ''; }, 10);
+                }
+            }
+            
+            if (stickyMetadataElement) {
+                stickyMetadataElement.textContent = stationName;
+            }
+            
+            if (trackArtElement) {
+                setImageSource(trackArtElement, '');
+                trackArtElement.style.display = 'none';
+                trackArtElement.classList.remove('active');
+                
+                // Show the station logo again, or hide the panel if there isn't one
+                var wrap = trackArtElement.parentElement;
+                var stationArt = wrap ? wrap.querySelector('.mbr-station-art') : null;
+                if (wrap) {
+                    wrap.style.display = (stationArt && stationArt.getAttribute('src')) ? '' : 'none';
+                }
+            }
+            
+            // So the same song returning after the break counts as new
+            lastMetadataTitle = '';
+        }
+        
+        /**
+         * Called whenever a poll fails to tell us what is playing, for any
+         * reason. Reverts to the station display once it has persisted.
+         */
+        function noteUnknownTrack(reason, threshold) {
+            unknownMetadataCount++;
+            console.log('  \u2013 No track info [' + reason + '] (' +
+                        unknownMetadataCount + '/' + threshold + ')');
+            
+            if (unknownMetadataCount >= threshold && !metadataIsCleared) {
+                metadataIsCleared = true;
+                console.log('\u2713 Reverting to station artwork (' + reason + ')');
+                resetMetadataDisplay();
+            }
+        }
+        
+        // Artwork lightbox
+        initArtworkModal(playerElement);
+        
         console.log('Metadata elements found:', {
             marquee: !!marqueeElement,
             stickyMetadata: !!stickyMetadataElement,
@@ -762,6 +1013,12 @@
                     console.log('  - DEBUG:', data.success && data.data.debug ? data.data.debug : 'no debug info');
                     console.log('  - JS time:', Math.floor(Date.now() / 1000));
                     
+                    if (data.success && data.data.title) {
+                        // Real metadata is flowing again
+                        unknownMetadataCount = 0;
+                        metadataIsCleared = false;
+                    }
+                    
                     if (data.success && data.data.title && data.data.title !== lastMetadataTitle) {
                         lastMetadataTitle = data.data.title;
                         console.log('✓ New track detected:', data.data.title);
@@ -790,18 +1047,47 @@
                         // Track artwork from stream metadata (only available for some streams e.g. SomaFM)
                         if (trackArtElement) {
                             if (data.data.url) {
-                                trackArtElement.src = data.data.url;
+                                setImageSource(trackArtElement, data.data.url);
                                 trackArtElement.style.display = 'block';
                                 trackArtElement.classList.add('active');
+                                
+                                // If station has no logo, the wrapper is hidden - reveal it
+                                var artWrapper = trackArtElement.parentElement;
+                                if (artWrapper && artWrapper.style.display === 'none') {
+                                    artWrapper.style.display = '';
+                                }
                             } else {
+                                setImageSource(trackArtElement, '');
                                 trackArtElement.style.display = 'none';
                                 trackArtElement.classList.remove('active');
+                                
+                                // Fall back to the station artwork from settings;
+                                // if this station has none, hide the panel entirely
+                                var fbWrapper = trackArtElement.parentElement;
+                                var fbStationArt = fbWrapper ? fbWrapper.querySelector('.mbr-station-art') : null;
+                                if (fbWrapper) {
+                                    if (fbStationArt && fbStationArt.getAttribute('src')) {
+                                        fbWrapper.style.display = '';
+                                    } else {
+                                        fbWrapper.style.display = 'none';
+                                    }
+                                }
                             }
                         }
+                    } else if (data.success && !data.data.title) {
+                        // Stream reports no track: ad break, news or jingle
+                        noteUnknownTrack('stream sent no track', EMPTY_POLLS_BEFORE_RESET);
+                    } else if (!data.success) {
+                        // We could not ask: rate limit, proxy or server error.
+                        // The listener should not be shown a song that finished
+                        // long ago just because our request was refused.
+                        noteUnknownTrack(typeof data.data === 'string' ? data.data : 'request failed', ERROR_POLLS_BEFORE_RESET);
                     }
                 })
                 .catch(function(error) {
+                    // Network drop - same story, we no longer know what is on
                     console.error('Metadata polling error:', error);
+                    noteUnknownTrack('network error', ERROR_POLLS_BEFORE_RESET);
                 });
         }
         
@@ -809,7 +1095,7 @@
         audio.addEventListener('playing', function() {
             if (!metadataInterval) {
                 pollMetadata(); // Poll immediately
-                metadataInterval = setInterval(pollMetadata, 30000); // Then every 30 seconds (reduced from 5 to avoid rate limits)
+                metadataInterval = setInterval(pollMetadata, 20000); // Then every 20 seconds
             }
         });
         
@@ -985,6 +1271,8 @@
                             metadataInterval = null;
                         }
                         lastMetadataTitle = '';
+                        unknownMetadataCount = 0;
+                        metadataIsCleared = false;
                         playerElement.classList.remove('playing', 'loading');
                     }
                     
@@ -1001,11 +1289,17 @@
                     if (artworkWrapper) {
                         if (newArt) {
                             if (stationArtEl) {
-                                stationArtEl.src = newArt;
+                                setImageSource(stationArtEl, newArt);
                                 stationArtEl.alt = newTitle;
                             }
                             artworkWrapper.style.display = '';
                         } else {
+                            // Clear the old station's logo so a later track-art
+                            // reveal can't fall back to the wrong station
+                            if (stationArtEl) {
+                                setImageSource(stationArtEl, '');
+                                stationArtEl.alt = '';
+                            }
                             artworkWrapper.style.display = 'none';
                         }
                     }
@@ -1019,7 +1313,7 @@
                     if (trackArtElement) {
                         trackArtElement.style.display = 'none';
                         trackArtElement.classList.remove('active');
-                        trackArtElement.src = '';
+                        setImageSource(trackArtElement, '');
                     }
                     
                     // Load and play the new stream, handling all stream types correctly
@@ -1301,7 +1595,7 @@
         }
         
         // ── Volume ────────────────────────────────────────────────────────────
-        audio.volume = 0.7;
+        audio.volume = 0.25;
         if (volumeSlider) {
             volumeSlider.addEventListener('input', function() {
                 audio.volume = this.value / 100;

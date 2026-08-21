@@ -5,8 +5,8 @@ Tags: radio, player, live stream, audio, hls, podcast, mp3, file player, playlis
 Author: Robert Palmer
 Author URI: https://madebyrobert.co.uk
 Requires at least: 5.2
-Tested up to: 6.8
-Stable tag: 3.9.27
+Tested up to: 7.0
+Stable tag: 3.12.6
 Requires PHP: 7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -188,6 +188,103 @@ This plugin bundles the following third-party library:
 * Why bundled: Required for HLS stream playback in Chrome, Firefox, and Edge. Safari uses native HLS and does not require this library.
 
 == Changelog ==
+
+= 3.12.6 =
+**Fixes stream playback for stations whose URL redirects. Please update.**
+
+* FIX: Streams failed with "no supported source was found" when the station URL redirects to the real stream host, which is extremely common — Shoutcast directory links, most CDNs, and load balancers all do it. The proxy was passing the redirect's own small HTML page through to the listener labelled as audio, which no browser can decode.
+* Redirects are now detected and followed on the actual streaming request instead of by a separate advance probe. The probe was unreliable: many stream servers answer a probe request differently from a real one, or refuse it, and when it missed a redirect the failure above was the result. Each hop is still validated before it is followed, so the SSRF protection is unchanged.
+* A redirect response's headers and body are now discarded rather than forwarded to the listener.
+* Shoutcast's "ICY 200 OK" status line is now recognised alongside standard HTTP status lines when reading a response.
+* Removed the unused redirect-probe helper.
+
+= 3.12.5 =
+**Fixes a regression in 3.12.3/3.12.4. Please update.**
+
+* FIX: Streams could stop playing with "no supported source was found" in the browser console, most often after switching stations a few times. 3.12.3 added a limit on simultaneous streams per listener, and that limit was set far too tight: three at once, with an abandoned slot held for two hours. A single page can legitimately use three at once — an embedded player, a sticky bar and a pop-out — so ordinary use, and station switching in particular, could exhaust it and lock a listener out for the rest of the session.
+* The limit is now ten simultaneous streams, and a slot is held for five minutes rather than two hours. Slots are refreshed while audio is actually playing, so a genuine long listen keeps its place, while a slot left behind by a dropped connection clears itself within minutes.
+* FIX: Two streams starting in the same second were given the same internal slot identifier, so ending one released both.
+* FIX: Releasing a slot pushed the expiry of the whole record forward, the same pattern that caused the rate-limiter bug fixed in 3.11.2.
+* Set `add_filter( 'mbr_lrp_max_concurrent_streams', '__return_zero' );` to switch the limit off entirely.
+
+= 3.12.4 =
+**Fixes a regression in 3.12.3. Please update if you installed that version.**
+
+* FIX: Now-playing metadata stopped appearing for Icecast and Shoutcast stations whose stream URL redirects to the real mount point. Shoutcast v2 and most stream load balancers do exactly this, so a great many stations were affected. 3.12.3 stopped following redirects altogether as part of closing an SSRF issue; redirects are now followed again, but each destination is re-validated before it is used, so the security fix still holds.
+* FIX: Connection failures during a metadata fetch were reported as "Stream does not support Icecast metadata", which pointed at the station's configuration when the real fault was the connection itself. The actual error is now reported.
+* FIX: Album artwork could go missing for artwork hosted behind a redirect. Redirects are followed again for artwork lookups, validated at each hop by WordPress's own safe HTTP handling.
+* The redirect probe now uses an aborted GET rather than a HEAD request. Shoutcast servers answer HEAD inconsistently, which would have misreported the redirect chain for exactly the stations most likely to use one.
+
+= 3.12.3 =
+**Security release — updating is strongly recommended.**
+
+* SECURITY: Removed `proxy-stream-v2.php`, an obsolete standalone proxy file that was shipped in the plugin folder but never used. It was reachable over the web without an authentication token and performed no SSRF validation, so it could be used to make requests from your server to arbitrary addresses, including your own internal network. This is the most important fix in this release.
+* SECURITY: TLS certificate verification is now enabled on every outbound connection. Previously the stream proxy and the metadata proxy accepted invalid, expired or forged certificates, meaning a party able to interfere with the connection could impersonate the remote station.
+* SECURITY: Redirects are no longer followed automatically. A stream that passed validation could previously redirect the server to an internal address that was never re-checked. Every redirect is now resolved manually and re-validated before it is used.
+* SECURITY: Removed the "trusted streaming domain" list that allowed certain hostnames to skip DNS validation entirely. Several of those providers issue user-controlled subdomains, so the exemption could be abused. Every hostname is now resolved and every resulting address checked, with no exceptions.
+* SECURITY: Artwork addresses broadcast in stream metadata are now validated before the server will contact them. These come from the broadcaster rather than from you, and were previously trusted.
+* SECURITY: Stream URL validation now blocks decimal, octal and short-form encoded addresses, bracketed IPv6 literals, and IPv4-mapped IPv6 addresses.
+* SECURITY: Debug messages are no longer written to the PHP error log on production sites. Full stream URLs were being logged, which could expose access tokens or credentials embedded in a stream address. Logging is now gated behind WP_DEBUG and strips query strings.
+* Proxied streams now have a maximum duration of two hours rather than running without limit, and each visitor is limited to three simultaneous streams. An unbounded connection could otherwise tie up a PHP worker indefinitely, which matters most on shared hosting. Both limits are filterable.
+* HLS manifest requests are no longer completely exempt from rate limiting; they now have their own allowance, ten times the standard one. The previous check matched ".m3u8" anywhere in the address, so rate limiting could be avoided by adding it to the query string.
+* NEW: Optional `mbr_lrp_restrict_proxy_to_stations` filter limits the proxy to hosts belonging to your configured stations. Off by default so existing setups are unaffected.
+* Removed unused development files from the release package, including a duplicate proxy class containing a PHP parse error, a debug proxy class, and several internal notes files.
+* Corrected the "Tested up to" value in the plugin header, which read 6.8 while the readme and user guide said 7.0.
+
+With thanks to the third-party code audit that prompted this review.
+
+= 3.12.2 =
+* Classic (Vertical Card): artwork enlarged to a 260x260 square and no longer cropped, so square album covers display in full and wide station logos are shown complete rather than cut off
+* Track metadata is now polled every 20 seconds instead of 30, so now-playing details and artwork update sooner
+* An advert break or news bulletin is now detected on the first empty response, reverting to the station artwork within 20 seconds instead of a minute
+* Failed or rate-limited requests still require two consecutive responses before reverting, since a single failure is not evidence that the music has stopped
+* Default volume lowered to 25% across all players, so pressing play is no longer startling
+
+= 3.12.1 =
+* The player credit now sits directly beneath the scrolling track metadata rather than at the end of the player
+* Classic (Vertical Card): credit rendered in dark text to suit the light background, below the track metadata
+* Dark Flat: credit centred across the full width, below the controls
+* Ghost Bar: credit removed entirely, in keeping with the skin's minimal styling
+* Retro Boombox: credit placed below the track metadata
+* Slim Bar, sticky and pop-out players keep their own compact placement
+
+= 3.12.0 =
+* NEW: A small "Made with (heart) by Robert" credit now appears on every player - all six skins, the multi-station player, the sticky bar and the pop-out window - linking to the plugin home page in a new tab
+* The credit inherits each skin's own text colour, so it sits naturally on light, dark, gradient and glassmorphism treatments alike, and is hidden on the sticky bar at narrow widths where space is tight
+
+= 3.11.2 =
+* FIX: Important - listeners were wrongly hit with "Rate limit exceeded" after about 15 minutes of continuous listening, losing now-playing text and artwork. Setting a WordPress transient resets its expiry, so the per-minute and per-hour counters never rolled over while a listener kept polling; the "limit" had effectively become a lifetime total rather than a rate. Both windows are now fixed periods that expire properly
+* The hourly ceiling is raised to 1200 requests to accommodate several genuine listeners sharing one IP address behind carrier NAT or an office connection
+* A triggered block now lasts 15 minutes rather than an hour
+* Burst protection against genuine abuse is unchanged, and logged-in administrators remain exempt
+
+= 3.11.1 =
+* FIX: Ad breaks, news bulletins and jingles left the previous song's title and artwork on screen. Many stations blank their metadata during a break; the player now detects this and reverts to the station name and station artwork, restoring the track details when music resumes
+* FIX: The same stale display occurred when metadata could not be fetched at all - a rate-limited, failed or timed-out request would leave a long-finished song on screen. These now revert to the station display too
+* Any reset requires two consecutive unknown responses (about 60 seconds), so brief gaps, single failed requests and short jingles cannot make the player flicker
+* A song returning afterwards is correctly re-detected, even if it is the same track that was playing before
+
+= 3.11.0 =
+* NEW: Artwork lightbox - click or tap the player artwork to view it large in a responsive modal. Shows the current track artwork when one is displayed, otherwise the station's full-size logo, with the track or station name as a caption
+* Modal closes via the close button, backdrop click, or Escape; fully keyboard accessible with focus handling, and honours prefers-reduced-motion
+* Station artwork is now also stored at full size so the enlarged view is sharp rather than an upscaled thumbnail
+
+= 3.10.3 =
+* FIX: Station artwork failing to change in the multi-station player when an image optimisation plugin is active. Such plugins add a `srcset` or wrap images in `<picture><source>`, which browsers prioritise over `src` - so the player's artwork swap updated an attribute the browser was ignoring. All artwork changes now clear srcset, sizes, lazy-load attributes and any `<picture>` sources
+* Logged-in administrators are now exempt from the metadata rate limiter, so site testing can no longer lock out metadata for an hour
+
+= 3.10.2 =
+* FIX: Stations that broadcast a website link instead of an image in the stream's artwork field (e.g. Capital Chill sending its homepage URL) no longer suppress artwork. The URL is now validated as a real image before use; if it isn't one, Track Artwork Lookup fills the gap instead
+* Artwork URLs without a file extension are verified by content type, with the result cached for 6 hours
+
+= 3.10.1 =
+* NEW: Track Artwork Lookup (opt-in, Proxy Settings page) - when a stream broadcasts the track title but no artwork (most stations), the server looks up album artwork from the iTunes Search API and displays it in the player. Cached per track, at most one lookup per song, no visitor data ever sent
+* NEW: Track artwork now displays in the embedded, multi-station, and sticky players (previously only the pop-out player supported it)
+* FIX: Broken "Track artwork" placeholder image could appear when a stream sent no artwork URL - inactive artwork is now guaranteed hidden, protected against lazy-load plugins, and hidden automatically if the image fails to load
+* Native stream artwork (StreamUrl / SomaFM album art) continues to take priority; the lookup only runs when the stream provides none
+* Default skin: artwork enlarged from 80x80 to 100x100 and raised 10px for more presence
+* Default skin: extra bottom padding on desktop and mobile so the metadata bar sits fully clear below the larger artwork
+* FIX: Multi-station player artwork fallback - when a station has no track artwork, the station logo from settings now reliably shows; switching stations can no longer display a stale logo from the previous station, and the artwork panel now works even when the first station in the list has no logo configured
 
 = 3.9.27 =
 * Maintenance release

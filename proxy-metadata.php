@@ -110,6 +110,34 @@ function mbr_validate_metadata_url( $url ) {
     return true;
 }
 
+/**
+ * Resolve a relative Location header against the URL that produced it.
+ */
+function mbr_metadata_absolute_url( $base, $relative ) {
+    if ( preg_match( '#^https?://#i', $relative ) ) {
+        return $relative;
+    }
+
+    $parts = parse_url( $base );
+    if ( ! $parts || ! isset( $parts['scheme'], $parts['host'] ) ) {
+        return false;
+    }
+
+    $origin = $parts['scheme'] . '://' . $parts['host']
+        . ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' );
+
+    if ( strpos( $relative, '//' ) === 0 ) {
+        return $parts['scheme'] . ':' . $relative;
+    }
+
+    if ( strpos( $relative, '/' ) === 0 ) {
+        return $origin . $relative;
+    }
+
+    $dir = isset( $parts['path'] ) ? rtrim( dirname( $parts['path'] ), '/' ) : '';
+    return $origin . $dir . '/' . $relative;
+}
+
 // Validate URL
 if ( ! mbr_validate_metadata_url( $stream_url ) ) {
     http_response_code( 403 );
@@ -139,8 +167,19 @@ if ( $cached !== false ) {
     exit;
 }
 
+// Many Shoutcast and Icecast stations answer the configured URL with a redirect
+// to the real mount point -- Shoutcast v2 and most load balancers do this as a
+// matter of course. Those redirects have to be followed or metadata never
+// arrives. They are followed manually, one hop at a time, with every
+// destination put back through mbr_validate_metadata_url() before it is used,
+// so a station cannot redirect this server somewhere it should not go.
+$redirect_hops = 0;
+$request_url   = $stream_url;
+
+metadata_request:
+
 // Initialize cURL for metadata extraction
-$ch = curl_init( $stream_url );
+$ch = curl_init( $request_url );
 
 if ( ! $ch ) {
     http_response_code( 500 );
@@ -160,11 +199,16 @@ curl_setopt( $ch, CURLOPT_HTTPHEADER, array(
 ));
 
 curl_setopt( $ch, CURLOPT_RETURNTRANSFER, false );
-curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, true );
-curl_setopt( $ch, CURLOPT_MAXREDIRS, 5 );
+
+// SECURITY: cURL must not follow redirects by itself, because it would do so
+// without the destination ever being re-validated. Redirects are handled
+// manually below, with each hop revalidated before it is requested.
+curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, false );
+curl_setopt( $ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );
 curl_setopt( $ch, CURLOPT_TIMEOUT, 15 );
 curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 10 );
-curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
+curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
+curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
 
 // Variables for metadata extraction
 $icy_metaint = 0;
@@ -175,13 +219,24 @@ $buffer = '';
 $bytes_received = 0;
 
 // Header callback - capture metadata interval
-curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$icy_metaint ) {
+$redirect_target = '';
+
+curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$icy_metaint, &$redirect_target ) {
     if ( stripos( $header, 'icy-metaint:' ) === 0 ) {
         $parts = explode( ':', $header, 2 );
         if ( isset( $parts[1] ) ) {
             $icy_metaint = (int) trim( $parts[1] );
         }
     }
+
+    // Remember where a redirect points; it is validated after the transfer.
+    if ( stripos( $header, 'location:' ) === 0 ) {
+        $parts = explode( ':', $header, 2 );
+        if ( isset( $parts[1] ) ) {
+            $redirect_target = trim( $parts[1] );
+        }
+    }
+
     return strlen( $header );
 });
 
@@ -240,8 +295,38 @@ curl_setopt( $ch, CURLOPT_WRITEFUNCTION, function( $ch, $data ) use ( &$icy_meta
 
 // Execute
 curl_exec( $ch );
-$curl_error = curl_error( $ch );
+$curl_error   = curl_error( $ch );
+$http_code    = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
 curl_close( $ch );
+
+// Follow one redirect hop, validating the destination first.
+if ( $http_code >= 300 && $http_code < 400 && $redirect_target !== '' && $redirect_hops < 5 ) {
+    $next = mbr_metadata_absolute_url( $request_url, $redirect_target );
+
+    if ( $next !== false && mbr_validate_metadata_url( $next ) ) {
+        $redirect_hops++;
+        $request_url = $next;
+
+        // Reset per-request state before retrying against the new URL.
+        $icy_metaint    = 0;
+        $metadata_found = false;
+        $metadata_title = '';
+        $metadata_url   = '';
+        $buffer         = '';
+        $bytes_received = 0;
+
+        goto metadata_request;
+    }
+
+    // Destination failed validation: stop rather than follow it.
+    http_response_code( 403 );
+    header( 'Content-Type: application/json' );
+    echo json_encode( array(
+        'success' => false,
+        'error'   => 'Stream redirected to an address that failed validation'
+    ));
+    exit;
+}
 
 // Prepare response
 $result = array(
@@ -265,6 +350,12 @@ if ( $metadata_found && ! empty( $metadata_title ) ) {
     );
     set_transient( $cache_key, $cache_data, 30 );
     
+} elseif ( $curl_error ) {
+    // Report transport failures (TLS, DNS, timeout) explicitly. Falling
+    // through to "does not support metadata" here sent people looking at
+    // their station config when the real fault was the connection.
+    $result['error'] = $curl_error;
+    $result['metaint'] = $icy_metaint;
 } elseif ( $icy_metaint === 0 ) {
     $result['error'] = 'Stream does not support Icecast metadata';
     $result['metaint'] = 0;

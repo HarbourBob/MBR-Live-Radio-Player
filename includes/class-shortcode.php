@@ -55,6 +55,7 @@ class MBR_LRP_Shortcode {
         
         $station_title = get_the_title( $station_id );
         $station_art = get_the_post_thumbnail_url( $station_id, 'medium' );
+        $station_art_full = get_the_post_thumbnail_url( $station_id, 'full' ) ?: $station_art;
         
         // Generate unique player ID
         $player_id = 'mbr-radio-player-' . $station_id . '-' . wp_rand();
@@ -126,7 +127,8 @@ class MBR_LRP_Shortcode {
                 $group_data[] = array(
                     'id'    => $sid,
                     'title' => get_the_title( $sid ),
-                    'art'   => get_the_post_thumbnail_url( $sid, 'thumbnail' ) ?: '',
+                    'art'   => get_the_post_thumbnail_url( $sid, 'medium' ) ?: '',
+                    'artFull' => get_the_post_thumbnail_url( $sid, 'full' ) ?: ( get_the_post_thumbnail_url( $sid, 'medium' ) ?: '' ),
                     'stream'=> $s_stream,
                 );
             }
@@ -159,11 +161,13 @@ class MBR_LRP_Shortcode {
                 <?php endif; ?>
                 <?php if ( $station_art ) : ?>
                     <div class="mbr-player-artwork">
-                        <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" />
+                        <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" data-art-full="<?php echo esc_url( $station_art_full ); ?>" />
+                        <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
                     </div>
                 <?php else : ?>
                     <div class="mbr-player-artwork" style="display:none;">
                         <img src="" alt="" class="mbr-station-art" />
+                        <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
                     </div>
                 <?php endif; ?>
                 
@@ -200,7 +204,7 @@ class MBR_LRP_Shortcode {
                             class="mbr-volume-slider" 
                             min="0" 
                             max="100" 
-                            value="70"
+                            value="25"
                             aria-label="<?php esc_attr_e( 'Volume', 'mbr-live-radio-player' ); ?>"
                         />
                     </div>
@@ -241,6 +245,7 @@ class MBR_LRP_Shortcode {
                     </div>
                 </div>
                 <?php endif; ?>
+                <?php echo self::credit_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped within ?>
             </div>
         </div>
         <?php
@@ -258,6 +263,7 @@ class MBR_LRP_Shortcode {
         
         $station_title = get_the_title( $station_id );
         $station_art   = get_the_post_thumbnail_url( $station_id, 'medium' );
+        $station_art_full = get_the_post_thumbnail_url( $station_id, 'full' ) ?: $station_art;
         $player_id     = 'mbr-radio-player-' . $station_id . '-' . wp_rand();
         
         // ── Appearance — identical logic to stream player ──────────────────
@@ -302,7 +308,13 @@ class MBR_LRP_Shortcode {
             
             <?php if ( $station_art ) : ?>
                 <div class="mbr-player-artwork">
-                    <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" />
+                    <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" data-art-full="<?php echo esc_url( $station_art_full ); ?>" />
+                    <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
+                </div>
+            <?php else : ?>
+                <div class="mbr-player-artwork" style="display:none;">
+                    <img src="" alt="" class="mbr-station-art" />
+                    <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
                 </div>
             <?php endif; ?>
             
@@ -366,7 +378,7 @@ class MBR_LRP_Shortcode {
                             <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
                         </svg>
                     </button>
-                    <input type="range" class="mbr-volume-slider" min="0" max="100" value="70"
+                    <input type="range" class="mbr-volume-slider" min="0" max="100" value="25"
                            aria-label="<?php esc_attr_e( 'Volume', 'mbr-live-radio-player' ); ?>" />
                 </div>
                 
@@ -411,6 +423,7 @@ class MBR_LRP_Shortcode {
             </div>
             <?php endif; ?>
             
+            <?php echo self::credit_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped within ?>
             </div><!-- /.mbr-player-inner -->
         </div><!-- /.mbr-radio-player -->
         <?php
@@ -422,7 +435,10 @@ class MBR_LRP_Shortcode {
      */
     public function render_sticky_player( $atts ) {
         // Log that shortcode was called
-        error_log( 'MBR Sticky Player: Shortcode called with attributes: ' . print_r( $atts, true ) );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky Player: Shortcode called with attributes: ' . print_r( $atts, true ) );
+        }
         
         $atts = shortcode_atts( array(
             'id' => 0,
@@ -430,11 +446,17 @@ class MBR_LRP_Shortcode {
         
         $station_id = intval( $atts['id'] );
         
-        error_log( 'MBR Sticky Player: Station ID = ' . $station_id );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky Player: Station ID = ' . $station_id );
+        }
         
         if ( ! $station_id ) {
             $error_msg = '<p style="color: red; background: #fff3cd; padding: 10px; border: 2px solid red;">' . esc_html__( 'MBR Sticky Player Error: Please provide a valid radio station ID. Example: [mbr_radio_player_sticky id="123"]', 'mbr-live-radio-player' ) . '</p>';
-            error_log( 'MBR Sticky Player: No station ID provided' );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+                error_log( 'MBR Sticky Player: No station ID provided' );
+            }
             return $error_msg;
         }
         
@@ -443,7 +465,10 @@ class MBR_LRP_Shortcode {
         
         if ( ! $station || 'mbr_radio_station' !== $station->post_type || 'publish' !== $station->post_status ) {
             $error_msg = '<p style="color: red; background: #fff3cd; padding: 10px; border: 2px solid red;">' . sprintf( esc_html__( 'MBR Sticky Player Error: Radio station ID %d not found or not published.', 'mbr-live-radio-player' ), $station_id ) . '</p>';
-            error_log( 'MBR Sticky Player: Station not found or not published. ID: ' . $station_id );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+                error_log( 'MBR Sticky Player: Station not found or not published. ID: ' . $station_id );
+            }
             return $error_msg;
         }
         
@@ -455,6 +480,7 @@ class MBR_LRP_Shortcode {
         
         $station_title = get_the_title( $station_id );
         $station_art = get_the_post_thumbnail_url( $station_id, 'thumbnail' );
+        $station_art_full = get_the_post_thumbnail_url( $station_id, 'full' ) ?: $station_art;
         
         // Generate unique player ID
         $player_id = 'mbr-radio-player-sticky-' . $station_id;
@@ -504,16 +530,34 @@ class MBR_LRP_Shortcode {
             esc_attr( $gradient_color_2 )
         );
         
-        error_log( 'MBR Sticky: Gradient Color 1: ' . $gradient_color_1 );
-        error_log( 'MBR Sticky: Gradient Color 2: ' . $gradient_color_2 );
-        error_log( 'MBR Sticky: Dark Mode: ' . ( $dark_mode ? 'yes' : 'no' ) );
-        error_log( 'MBR Sticky: Glassmorphism: ' . ( $glassmorphism ? 'yes' : 'no' ) );
-        error_log( 'MBR Sticky: Custom Gradient: ' . $custom_gradient );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky: Gradient Color 1: ' . $gradient_color_1 );
+        }
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky: Gradient Color 2: ' . $gradient_color_2 );
+        }
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky: Dark Mode: ' . ( $dark_mode ? 'yes' : 'no' ) );
+        }
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky: Glassmorphism: ' . ( $glassmorphism ? 'yes' : 'no' ) );
+        }
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky: Custom Gradient: ' . $custom_gradient );
+        }
         
         // Build sticky player HTML
         ob_start();
         
-        error_log( 'MBR Sticky Player: Rendering player for station: ' . $station_title );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Gated behind WP_DEBUG.
+            error_log( 'MBR Sticky Player: Rendering player for station: ' . $station_title );
+        }
         
         ?>
         <div class="mbr-radio-player-sticky mbr-sticky-<?php echo esc_attr( $sticky_position ); ?><?php echo esc_attr( $dark_mode_class . $glassmorphism_class ); ?>"<?php echo $custom_gradient; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via sprintf and esc_attr ?> 
@@ -533,7 +577,8 @@ class MBR_LRP_Shortcode {
                 
                 <?php if ( $station_art ) : ?>
                     <div class="mbr-sticky-artwork">
-                        <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" />
+                        <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" data-art-full="<?php echo esc_url( $station_art_full ); ?>" />
+                        <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
                     </div>
                 <?php endif; ?>
                 
@@ -569,7 +614,7 @@ class MBR_LRP_Shortcode {
                         class="mbr-volume-slider" 
                         min="0" 
                         max="100" 
-                        value="70"
+                        value="25"
                         aria-label="<?php esc_attr_e( 'Volume', 'mbr-live-radio-player' ); ?>"
                     />
                     
@@ -585,9 +630,32 @@ class MBR_LRP_Shortcode {
                     <span class="mbr-status-dot"></span>
                     <span class="mbr-status-text"><?php esc_html_e( 'Ready', 'mbr-live-radio-player' ); ?></span>
                 </p>
+                <?php echo self::credit_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped within ?>
             </div>
         </div>
         <?php
         return ob_get_clean();
     }
+
+    /**
+     * Attribution credit shown on every player.
+     *
+     * Kept as one method so the markup, link and translation stay identical
+     * across the stream, file and sticky templates.
+     */
+    private static function credit_html() {
+        ob_start();
+        ?>
+        <div class="mbr-credit">
+            <a href="https://littlewebshack.com/radio/" target="_blank" rel="noopener noreferrer">
+                <?php esc_html_e( 'Made with', 'mbr-live-radio-player' ); ?>
+                <span class="mbr-credit-heart" aria-hidden="true">&hearts;</span>
+                <span class="screen-reader-text"><?php esc_html_e( 'love', 'mbr-live-radio-player' ); ?></span>
+                <?php esc_html_e( 'by Robert', 'mbr-live-radio-player' ); ?>
+            </a>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
 }

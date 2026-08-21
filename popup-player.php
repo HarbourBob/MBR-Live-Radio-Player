@@ -32,6 +32,7 @@ if ( ! $stream_url ) {
 
 $station_title = get_the_title( $station_id );
 $station_art = get_the_post_thumbnail_url( $station_id, 'medium' );
+$station_art_full = get_the_post_thumbnail_url( $station_id, 'full' ) ?: $station_art;
 
 // Get proxy settings
 $proxy_enabled = get_option( 'mbr_lrp_proxy_enabled', '1' ) === '1';
@@ -170,7 +171,7 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
         }
     </style>
 </head>
-<body>
+<body class="mbr-popup-body">
 
 <div class="mbr-radio-player<?php echo esc_attr( $popout_skin_class . $dark_mode_class . $glassmorphism_class ); ?>"<?php echo $custom_gradient; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already escaped via sprintf and esc_attr ?> 
      id="<?php echo esc_attr( $player_id ); ?>" 
@@ -181,8 +182,8 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
     <div class="mbr-player-inner">
         <?php if ( $station_art ) : ?>
             <div class="mbr-player-artwork">
-                <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" />
-                <img src="" alt="Track artwork" class="mbr-track-art" style="display:none;" />
+                <img src="<?php echo esc_url( $station_art ); ?>" alt="<?php echo esc_attr( $station_title ); ?>" class="mbr-station-art" data-art-full="<?php echo esc_url( $station_art_full ); ?>" />
+                <img src="" alt="" class="mbr-track-art" data-no-lazy="1" loading="eager" style="display:none;" />
             </div>
         <?php endif; ?>
         
@@ -219,7 +220,7 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
                     class="mbr-volume-slider" 
                     min="0" 
                     max="100" 
-                    value="70"
+                    value="25"
                     aria-label="<?php esc_attr_e( 'Volume', 'mbr-live-radio-player' ); ?>"
                 />
             </div>
@@ -231,6 +232,13 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
                 <span class="mbr-now-playing"></span>
             </div>
         </div>
+    </div>
+    <div class="mbr-credit">
+        <a href="https://littlewebshack.com/radio/" target="_blank" rel="noopener noreferrer">
+            <?php esc_html_e( 'Made with', 'mbr-live-radio-player' ); ?>
+            <span class="mbr-credit-heart" aria-hidden="true">&hearts;</span>
+            <?php esc_html_e( 'by Robert', 'mbr-live-radio-player' ); ?>
+        </a>
     </div>
 </div>
 

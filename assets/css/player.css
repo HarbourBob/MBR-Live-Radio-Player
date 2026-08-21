@@ -13,7 +13,7 @@
     background: linear-gradient(135deg, var(--mbr-gradient-color-1) 0%, var(--mbr-gradient-color-2) 100%);
     border-radius: 16px;
     padding: 24px;
-    padding-bottom: 48px;
+    padding-bottom: 66px;
     box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
     display: flex !important;
     flex-wrap: wrap !important;
@@ -96,6 +96,20 @@
     height: 100% !important;
     object-fit: cover;
     display: block !important;
+}
+
+/* Default skin only: larger artwork (+10px all round), raised 10px.
+   Named skins (classic, slim, etc.) keep their own artwork sizing. */
+.mbr-radio-player:not([class*="mbr-skin-"]) .mbr-player-artwork {
+    width: 100px !important;
+    height: 100px !important;
+    margin-top: -10px;
+}
+
+/* Desktop: modest extra bottom padding so the metadata bar keeps
+   a clear ~10px gap below the enlarged artwork */
+.mbr-radio-player:not([class*="mbr-skin-"]) .mbr-player-inner {
+    padding-bottom: 74px;
 }
 
 /* Info */
@@ -446,6 +460,17 @@
         gap: 16px;
     }
     
+    /* Default skin: extra bottom padding gives the metadata bar its own
+       lane fully below the enlarged 100px artwork (artwork bottom sits
+       110px from the top; bar needs 51px of floor space beneath it) */
+    .mbr-radio-player:not([class*="mbr-skin-"]) .mbr-player-inner {
+        padding-bottom: 74px;
+    }
+    
+    .mbr-radio-player:not([class*="mbr-skin-"]) .mbr-metadata-marquee {
+        bottom: 31px;
+    }
+    
     .mbr-player-artwork {
         width: 60px;
         height: 60px;
@@ -490,7 +515,7 @@
 /* Metadata Marquee */
 .mbr-metadata-marquee {
     position: absolute;
-    bottom: 8px;
+    bottom: 26px;
     left: 10px;
     right: 10px;
     background: transparent;
@@ -556,6 +581,27 @@
 
 .mbr-track-art.active {
     opacity: 1;
+}
+
+/* Belt and braces: an inactive track-art must never render,
+   even if a lazy-loader or theme forces img { display: block } */
+.mbr-track-art:not(.active) {
+    display: none !important;
+}
+
+/* Track artwork overlay inside the sticky player */
+.mbr-sticky-artwork {
+    position: relative;
+}
+
+.mbr-sticky-artwork .mbr-track-art {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
 }
 
 /* ========================================
@@ -1237,15 +1283,18 @@
     text-align: center;
     background: linear-gradient(160deg, #e8eaf6 0%, #f3e5f5 100%) !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.10);
-    padding-bottom: 48px;
+    padding-bottom: 66px;
 }
 
 .mbr-radio-player.mbr-skin-classic .mbr-player-artwork {
-    width: 200px !important;
-    height: 150px !important;
+    /* Square and larger, so square album covers fill it properly */
+    width: 260px !important;
+    height: 260px !important;
+    max-width: 100%;
     border-radius: 14px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.15);
     margin-bottom: 4px;
+    background: transparent;
 }
 
 .mbr-radio-player.mbr-skin-classic .mbr-player-title {
@@ -1412,7 +1461,7 @@
 }
 
 .mbr-radio-player.mbr-skin-gradient-dark .mbr-player-inner {
-    padding-bottom: 44px !important;
+    padding-bottom: 80px !important;
 }
 
 .mbr-radio-player.mbr-skin-gradient-dark .mbr-play-btn {
@@ -1628,7 +1677,7 @@
         0 10px 30px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,255,255,0.05);
     min-height: 120px;
-    padding-bottom: 50px !important;
+    padding-bottom: 68px !important;
 }
 
 .mbr-radio-player.mbr-skin-retro .mbr-player-inner::before {
@@ -1893,11 +1942,14 @@
 }
 
 #mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-artwork {
-    width: 200px !important;
-    height: 150px !important;
+    /* Square and larger, so square album covers fill it properly */
+    width: 260px !important;
+    height: 260px !important;
+    max-width: 100%;
     border-radius: 14px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.15);
     margin-bottom: 4px;
+    background: transparent;
 }
 
 #mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-title {
@@ -2875,5 +2927,355 @@
     /* Keep the bar balanced: artwork left, controls right */
     .mbr-radio-player:not([class*="mbr-skin-"]):not(.mbr-mode-files) .mbr-player-controls {
         margin-left: auto;
+    }
+}
+
+/* ========================================
+   ARTWORK LIGHTBOX MODAL
+   ======================================== */
+
+.mbr-artwork-clickable {
+    cursor: zoom-in;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mbr-artwork-clickable:hover {
+    transform: scale(1.04);
+}
+
+.mbr-artwork-clickable:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 3px;
+}
+
+body.mbr-art-modal-lock {
+    overflow: hidden;
+}
+
+.mbr-art-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(17, 17, 27, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.mbr-art-modal--open {
+    display: flex;
+    opacity: 1;
+}
+
+.mbr-art-modal-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 100%;
+    max-height: 100%;
+    animation: mbrArtModalIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mbrArtModalIn {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.mbr-art-modal-img {
+    display: block;
+    max-width: min(600px, 90vw);
+    max-height: 72vh;
+    width: auto;
+    height: auto;
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.mbr-art-modal-caption {
+    margin: 0;
+    max-width: min(600px, 90vw);
+    text-align: center;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.mbr-art-modal-close {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.mbr-art-modal-close:hover {
+    background: rgba(255, 255, 255, 0.28);
+    transform: rotate(90deg);
+}
+
+.mbr-art-modal-close:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* Mobile: use the full width, keep the close button on screen */
+@media (max-width: 600px) {
+    .mbr-art-modal {
+        padding: 16px;
+    }
+    
+    .mbr-art-modal-img {
+        max-width: 92vw;
+        max-height: 64vh;
+        border-radius: 12px;
+    }
+    
+    .mbr-art-modal-caption {
+        max-width: 92vw;
+        font-size: 15px;
+    }
+    
+    .mbr-art-modal-close {
+        top: -8px;
+        right: -8px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    /* Tapping should not leave a lingering hover zoom */
+    .mbr-artwork-clickable:hover {
+        transform: none;
+    }
+}
+
+/* Landscape phones have very little vertical room */
+@media (max-height: 480px) {
+    .mbr-art-modal-img {
+        max-height: 70vh;
+    }
+    
+    .mbr-art-modal-caption {
+        font-size: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mbr-art-modal,
+    .mbr-art-modal-inner,
+    .mbr-artwork-clickable {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* ========================================
+   ATTRIBUTION CREDIT
+   ======================================== */
+
+.mbr-credit {
+    /* Pinned to the foot of the player so it sits directly beneath the
+       scrolling track metadata, which is itself absolutely positioned. */
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 7px;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    text-align: center;
+    line-height: 1;
+    z-index: 2;
+}
+
+.mbr-credit a {
+    /* inline-block rather than inline-flex so it centres reliably in older
+       rendering engines; the heart uses margins rather than flex gap for the
+       same reason */
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .01em;
+    text-decoration: none;
+    /* Inherit the skin's own text colour so it works on light and dark alike */
+    color: inherit;
+    opacity: .55;
+    transition: opacity .2s ease;
+}
+
+.mbr-credit a:hover,
+.mbr-credit a:focus-visible {
+    opacity: 1;
+    text-decoration: none;
+}
+
+.mbr-credit a:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.mbr-credit-heart {
+    display: inline-block;
+    margin: 0 3px;
+    color: #e5484d;
+    font-size: 12px;
+    line-height: 1;
+    vertical-align: -1px;
+    /* Keep the heart readable even where opacity dims the text */
+    opacity: .95;
+}
+
+.mbr-credit a:hover .mbr-credit-heart {
+    animation: mbrCreditBeat .9s ease-in-out infinite;
+}
+
+@keyframes mbrCreditBeat {
+    0%, 100% { transform: scale(1); }
+    30%      { transform: scale(1.22); }
+    60%      { transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mbr-credit a:hover .mbr-credit-heart { animation: none; }
+}
+
+/* --- Sticky player: sits inline rather than stacked, space is tight --- */
+.mbr-radio-player-sticky .mbr-credit {
+    position: static;
+    width: auto;
+    margin: 0 0 0 16px;
+    padding-top: 0;
+    border-top: 0;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.mbr-radio-player-sticky .mbr-credit a {
+    font-size: 10px;
+    opacity: .5;
+}
+
+/* ---------- Per-skin placement ---------- */
+
+/* Classic (Vertical Card): light background, so the credit must be dark.
+   Sits under the track metadata like the default. */
+.mbr-radio-player.mbr-skin-classic .mbr-credit a {
+    color: #2d2d2d;
+    opacity: .6;
+}
+
+.mbr-radio-player.mbr-skin-classic .mbr-credit a:hover,
+.mbr-radio-player.mbr-skin-classic .mbr-credit a:focus-visible {
+    opacity: 1;
+}
+
+/* Dark Flat: the marquee is inset from the left here, so centre the credit
+   across the full width, below the controls. */
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-credit {
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+
+.mbr-radio-player.mbr-skin-gradient-dark .mbr-credit a {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Ghost Bar: deliberately minimal - no credit at all. */
+.mbr-radio-player.mbr-skin-minimal .mbr-credit {
+    display: none !important;
+}
+
+/* Retro Boombox: below the track metadata, tinted to match the skin. */
+.mbr-radio-player.mbr-skin-retro .mbr-credit a {
+    color: #ccc;
+}
+
+/* Slim Bar hides the marquee and is a single compact row, so the credit
+   returns to normal flow beneath the bar rather than overlapping it. */
+.mbr-radio-player.mbr-skin-slim-bar .mbr-credit {
+    position: static;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.mbr-radio-player.mbr-skin-slim-bar .mbr-credit a {
+    font-size: 10px;
+}
+
+/* --- Glassmorphism / dark treatments need a lighter divider --- */
+.mbr-glassmorphism .mbr-credit,
+.mbr-dark-mode .mbr-credit {
+    border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+/* --- Narrow screens: keep it, just quieter --- */
+@media (max-width: 600px) {
+    .mbr-credit a {
+        font-size: 10px;
+    }
+    
+    /* On a sticky bar this would crowd the controls, so drop it below */
+    .mbr-radio-player-sticky .mbr-credit {
+        display: none;
+    }
+}
+
+/* Screen-reader-only text, in case the theme does not define it */
+.mbr-credit .screen-reader-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Pop-out window: small standalone page, credit sits in normal flow */
+body.mbr-popup-body .mbr-credit {
+    position: static;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Classic skin: show the whole image rather than cropping to fill, so wide
+   station logos and square album covers both display complete. */
+.mbr-radio-player.mbr-skin-classic .mbr-player-artwork img,
+#mbr-lrp-preview-container .mbr-radio-player.mbr-skin-classic .mbr-player-artwork img {
+    object-fit: contain !important;
+    border-radius: 14px;
+}
+
+@media (max-width: 420px) {
+    .mbr-radio-player.mbr-skin-classic .mbr-player-artwork {
+        width: 200px !important;
+        height: 200px !important;
     }
 }
