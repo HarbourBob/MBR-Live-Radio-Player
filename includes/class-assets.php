@@ -56,7 +56,7 @@ class MBR_LRP_Assets {
                 'mbr-lrp-player',
                 MBR_LRP_PLUGIN_URL . 'assets/css/player.css',
                 array(),
-                MBR_LRP_VERSION . '-' . time() // Add timestamp to force cache refresh
+                mbr_lrp_asset_version( 'assets/css/player.css' )
             );
             
             // Add critical inline CSS to force icon visibility
@@ -100,7 +100,7 @@ class MBR_LRP_Assets {
                 'mbr-lrp-player',
                 MBR_LRP_PLUGIN_URL . 'assets/js/player.js',
                 array( 'hls-js' ),
-                MBR_LRP_VERSION . '-' . time(), // Add timestamp to force cache refresh
+                mbr_lrp_asset_version( 'assets/js/player.js' ),
                 true
             );
             

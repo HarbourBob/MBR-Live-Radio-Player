@@ -76,6 +76,11 @@ class MBR_LRP_Shortcode {
         // Use AJAX endpoint with trailing & so JS can append url parameter, and include token
         $proxy_url = $proxy_enabled ? admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ) : '';
         
+        // Proxy Mode: 'http_only' (default) or 'all'. The setting existed on
+        // the Proxy Settings screen but was never passed to the player, so
+        // choosing "Proxy all streams" had no effect at all.
+        $proxy_mode = get_option( 'mbr_lrp_require_proxy', 'http_only' ) === 'all' ? 'all' : 'http_only';
+        
         // Get appearance settings from post meta
         $skin = ! empty( $atts['skin'] ) ? sanitize_text_field( $atts['skin'] ) : get_post_meta( $station_id, '_mbr_lrp_skin', true );
         $allowed_skins = array( 'default', 'classic', 'gradient-dark', 'minimal', 'retro', 'slim-bar' );
@@ -145,6 +150,7 @@ class MBR_LRP_Shortcode {
              data-stream="<?php echo esc_url( $stream_url ); ?>"
              data-proxy-url="<?php echo esc_url( $proxy_url ); ?>"
              data-proxy-enabled="<?php echo $proxy_enabled ? '1' : '0'; ?>"
+             data-proxy-mode="<?php echo esc_attr( $proxy_mode ); ?>"
              data-station-id="<?php echo esc_attr( $station_id ); ?>"<?php echo $station_group_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_attr above ?>>
             <div class="mbr-player-inner">
                 <!-- Pop-out Button -->
@@ -500,6 +506,11 @@ class MBR_LRP_Shortcode {
         
         $proxy_url = $proxy_enabled ? admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ) : '';
         
+        // Proxy Mode: 'http_only' (default) or 'all'. The setting existed on
+        // the Proxy Settings screen but was never passed to the player, so
+        // choosing "Proxy all streams" had no effect at all.
+        $proxy_mode = get_option( 'mbr_lrp_require_proxy', 'http_only' ) === 'all' ? 'all' : 'http_only';
+        
         // Get sticky position setting (default to bottom)
         $sticky_position = get_option( 'mbr_lrp_sticky_position', 'bottom' );
         
@@ -565,6 +576,7 @@ class MBR_LRP_Shortcode {
              data-stream="<?php echo esc_url( $stream_url ); ?>"
              data-proxy-url="<?php echo esc_url( $proxy_url ); ?>"
              data-proxy-enabled="<?php echo $proxy_enabled ? '1' : '0'; ?>"
+             data-proxy-mode="<?php echo esc_attr( $proxy_mode ); ?>"
              data-station-id="<?php echo esc_attr( $station_id ); ?>"
              data-sticky-position="<?php echo esc_attr( $sticky_position ); ?>">
             <div class="mbr-sticky-inner">

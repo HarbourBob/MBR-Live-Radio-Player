@@ -5,7 +5,76 @@
 (function($) {
     'use strict';
     
+    /**
+     * Should this stream URL go through the proxy in the admin preview?
+     *
+     * Mirrors the front-end rule so the preview plays exactly what visitors
+     * get: insecure streams on a secure page always, and every stream when
+     * Proxy Mode is set to "all".
+     */
+    function adminShouldProxy(url) {
+        if (typeof mbrLrpAdmin === 'undefined' || !mbrLrpAdmin.proxyEnabled || !mbrLrpAdmin.proxyUrl || !url) {
+            return false;
+        }
+        if (url.indexOf(mbrLrpAdmin.proxyUrl) === 0) {
+            return false;
+        }
+        if (url.indexOf('http://') === 0 && window.location.protocol === 'https:') {
+            return true;
+        }
+        return mbrLrpAdmin.proxyMode === 'all' && /^https?:\/\//i.test(url);
+    }
+    
     // Fix Shoutcast URLs that point to server root
+    /**
+     * Is this URL a playlist (.m3u or .pls) that must be resolved first?
+     * Tests the path so a query string cannot hide the extension.
+     */
+    function isPlaylistUrl(url) {
+        if (!url) { return false; }
+        var path = String(url).split('#')[0].split('?')[0];
+        var dot  = path.lastIndexOf('.');
+        if (dot === -1) { return false; }
+        var ext = path.slice(dot + 1).toLowerCase();
+        return ext === 'm3u' || ext === 'pls';
+    }
+
+    /**
+     * Extract stream URLs from an M3U or PLS playlist.
+     * PLS is an INI with numbered "File1=…" entries; running those lines
+     * through the M3U parser yielded lines like "NumberOfEntries=1" as the
+     * stream URL.
+     */
+    function parsePlaylist(text) {
+        var lines = String(text || '').split(/\r?\n/);
+        var i;
+
+        if (/^\s*\[playlist\]/i.test(text) || /^\s*File\d*\s*=/im.test(text)) {
+            var entries = [];
+            for (i = 0; i < lines.length; i++) {
+                var m = lines[i].match(/^\s*File(\d*)\s*=\s*(.+?)\s*$/i);
+                if (m && m[2]) {
+                    entries.push({ index: parseInt(m[1], 10) || 0, url: m[2] });
+                }
+            }
+            entries.sort(function(a, b) { return a.index - b.index; });
+            return entries.map(function(e) { return e.url; }).filter(function(u) {
+                return /^(https?:)?\/\//i.test(u);
+            });
+        }
+
+        // URL-shaped lines only: an HTML error page must never yield a
+        // "stream URL" made of markup.
+        var urls = [];
+        for (i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line && line.charAt(0) !== '#' && /^(https?:)?\/\//i.test(line)) {
+                urls.push(line);
+            }
+        }
+        return urls;
+    }
+
     function fixShoutcastUrl(url) {
         try {
             var urlObj = new URL(url);
@@ -314,71 +383,65 @@
                 }
             }
             
-            // Check if stream is M3U playlist (not M3U8/HLS)
-            if (streamUrl.indexOf('.m3u') !== -1 && streamUrl.indexOf('.m3u8') === -1) {
-                console.log('Admin: Detected .m3u playlist, fetching actual stream URL...');
+            // Check if stream is a playlist (.m3u or .pls, but not .m3u8/HLS)
+            if (isPlaylistUrl(streamUrl)) {
+                console.log('Admin: Detected playlist, fetching actual stream URL...');
                 
-                // If HTTP playlist on HTTPS site, use proxy
-                var playlistFetchUrl = streamUrl;
-                if (typeof mbrLrpAdmin !== 'undefined' && mbrLrpAdmin.proxyEnabled && streamUrl.indexOf('http://') === 0) {
-                    playlistFetchUrl = mbrLrpAdmin.proxyUrl + 'playlist=1&url=' + encodeURIComponent(streamUrl);
-                    console.log('Admin: Using proxy to fetch playlist:', playlistFetchUrl);
-                }
+                // Always via the proxy when it is enabled: this is an XHR and
+                // station directories send no CORS headers.
+                var playlistFetchUrl = (typeof mbrLrpAdmin !== 'undefined' && mbrLrpAdmin.proxyEnabled && mbrLrpAdmin.proxyUrl)
+                    ? mbrLrpAdmin.proxyUrl + 'playlist=1&url=' + encodeURIComponent(streamUrl)
+                    : streamUrl;
                 
                 $.get(playlistFetchUrl)
                     .done(function(playlistText) {
-                        console.log('Admin: Playlist content:', playlistText);
+                        playlistText = String(playlistText || '');
                         
-                        // Parse M3U playlist and collect ALL stream URLs
-                        var lines = playlistText.split('\n');
-                        var streamUrls = [];
-                        
-                        for (var i = 0; i < lines.length; i++) {
-                            var line = lines[i].trim();
-                            if (line && !line.startsWith('#')) {
-                                streamUrls.push(line);
-                            }
+                        if (playlistText.indexOf('MBR_PLAYLIST_ERROR') === 0) {
+                            console.error('MBR Admin: playlist could not be fetched —', playlistText);
+                            $player.find('.mbr-status-text').text('Playlist unavailable');
+                            alert(playlistText.replace('MBR_PLAYLIST_ERROR: ', 'Playlist problem: '));
+                            return;
                         }
                         
+                        var streamUrls = parsePlaylist(playlistText);
+                        
                         if (streamUrls.length > 0) {
-                            // Try the second stream URL if available (often better quality)
-                            var actualStreamUrl = streamUrls.length > 1 ? streamUrls[1] : streamUrls[0];
-                            console.log('Admin: Found ' + streamUrls.length + ' stream URL(s), using:', actualStreamUrl);
-                            if (streamUrls.length > 1) {
-                                console.log('Admin: Alternative streams available:', streamUrls);
+                            // First entry is the primary server; the rest are
+                            // failover mirrors rather than better quality.
+                            var resolvedUrl = streamUrls[0];
+                            console.log('Admin: Found ' + streamUrls.length + ' stream URL(s), using:', resolvedUrl);
+                            
+                            if (resolvedUrl.indexOf('//') === 0) {
+                                resolvedUrl = (streamUrl.indexOf('https://') === 0 ? 'https:' : 'http:') + resolvedUrl;
                             }
                             
                             // Fix Shoutcast URLs that might be pointing to server root
-                            actualStreamUrl = fixShoutcastUrl(actualStreamUrl);
-                            console.log('Admin: After Shoutcast fix:', actualStreamUrl);
+                            resolvedUrl = fixShoutcastUrl(resolvedUrl);
+                            console.log('Admin: After Shoutcast fix:', resolvedUrl);
                             
-                            // Debug proxy settings
-                            console.log('Admin: mbrLrpAdmin:', typeof mbrLrpAdmin !== 'undefined' ? mbrLrpAdmin : 'undefined');
-                            
-                            // Check if we need to proxy the actual stream URL
-                            if (typeof mbrLrpAdmin !== 'undefined' && mbrLrpAdmin.proxyEnabled && actualStreamUrl.indexOf('http://') === 0) {
-                                actualStreamUrl = mbrLrpAdmin.proxyUrl + 'url=' + encodeURIComponent(actualStreamUrl);
-                                console.log('Admin: Using proxy for stream:', actualStreamUrl);
-                            } else {
-                                console.log('Admin: NOT using proxy. Reasons:',
-                                    'mbrLrpAdmin defined?', typeof mbrLrpAdmin !== 'undefined',
-                                    'proxyEnabled?', typeof mbrLrpAdmin !== 'undefined' ? mbrLrpAdmin.proxyEnabled : 'N/A',
-                                    'isHTTP?', actualStreamUrl.indexOf('http://') === 0
-                                );
+                            var playbackUrl = resolvedUrl;
+                            if (adminShouldProxy(resolvedUrl)) {
+                                playbackUrl = mbrLrpAdmin.proxyUrl + 'url=' + encodeURIComponent(resolvedUrl);
+                                console.log('Admin: Using proxy for stream:', resolvedUrl);
                             }
                             
-                            audio.src = actualStreamUrl;
+                            audio.src = playbackUrl;
                             initPlayerControls();
                             // Metadata polls against the raw resolved URL, not the proxied one
-                            var rawResolvedUrl = streamUrls.length > 1 ? streamUrls[1] : streamUrls[0];
-                            rawResolvedUrl = fixShoutcastUrl(rawResolvedUrl);
-                            startMetadataPolling(rawResolvedUrl);
+                            startMetadataPolling(resolvedUrl);
                         } else {
-                            console.error('Admin: Could not find stream URL in playlist');
+                            console.error('MBR Admin: no stream URL found in playlist. First 300 characters of the response:\n' + playlistText.slice(0, 300));
                             $player.find('.mbr-status-text').text('Invalid playlist');
                         }
                     })
-                    .fail(function() {
+                    .fail(function(xhr) {
+                        if (xhr && xhr.responseText && xhr.responseText.indexOf('MBR_PLAYLIST_ERROR') === 0) {
+                            console.error('MBR Admin: playlist could not be fetched —', xhr.responseText);
+                            $player.find('.mbr-status-text').text('Playlist unavailable');
+                            alert(xhr.responseText.replace('MBR_PLAYLIST_ERROR: ', 'Playlist problem: '));
+                            return;
+                        }
                         console.error('Admin: Failed to fetch playlist');
                         $player.find('.mbr-status-text').text('Playlist error');
                     });
@@ -392,7 +455,7 @@
                     var hlsConfig = {};
                     
                     // If we're using a proxy for HTTP streams, create custom loader
-                    var needsAdminProxy = typeof mbrLrpAdmin !== 'undefined' && mbrLrpAdmin.proxyEnabled && streamUrl.indexOf('http://') === 0;
+                    var needsAdminProxy = adminShouldProxy(streamUrl);
                     
                     if (needsAdminProxy) {
                         var DefaultLoader = Hls.DefaultConfig.loader;
@@ -536,7 +599,7 @@
                 var finalStreamUrl = streamUrl;
                 
                 // Check if we need to proxy HTTP streams
-                if (typeof mbrLrpAdmin !== 'undefined' && mbrLrpAdmin.proxyEnabled && streamUrl.indexOf('http://') === 0) {
+                if (adminShouldProxy(streamUrl)) {
                     finalStreamUrl = mbrLrpAdmin.proxyUrl + 'url=' + encodeURIComponent(streamUrl);
                     console.log('Admin: Using proxy for direct stream:', finalStreamUrl);
                 }

@@ -55,6 +55,28 @@ class MBR_LRP_Proxy {
     const SLOT_HEARTBEAT = 60;
 
     /**
+     * How long a slot-table lock may be held before it is treated as stale.
+     */
+    const SLOT_LOCK_TIMEOUT = 5;
+
+    /**
+     * Addresses the most recently validated URL resolved to.
+     *
+     * Kept so the connection can be pinned to the addresses that were actually
+     * checked rather than to whatever a second DNS lookup returns.
+     *
+     * @var string[]
+     */
+    private $validated_ips = array();
+
+    /**
+     * CURLOPT_RESOLVE entries applied to WordPress HTTP API requests.
+     *
+     * @var string[]
+     */
+    private $pinned_resolve = array();
+
+    /**
      * Constructor
      */
     public function __construct() {
@@ -175,44 +197,15 @@ class MBR_LRP_Proxy {
     /**
      * Determine whether a literal IP address is safe to connect to.
      *
-     * Rejects loopback, private, link-local, reserved and cloud metadata
-     * addresses for both IPv4 and IPv6, including IPv4-mapped IPv6 forms.
+     * Thin wrapper kept for readability; the implementation lives in
+     * MBR_LRP_URL_Validator so the stream proxy and the standalone metadata
+     * proxy cannot drift apart.
      *
      * @param string $ip IP address to test.
      * @return bool True if the address is a safe public address.
      */
     private function is_safe_ip( $ip ) {
-        if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-            return false;
-        }
-
-        // Cloud metadata services.
-        if ( $ip === '169.254.169.254' || strtolower( $ip ) === 'fd00:ec2::254' ) {
-            return false;
-        }
-
-        // IPv4-mapped and IPv4-compatible IPv6 (e.g. ::ffff:127.0.0.1) are
-        // unwrapped so the underlying IPv4 address is judged on its own merits.
-        if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
-            $packed = @inet_pton( $ip );
-            if ( $packed !== false && strlen( $packed ) === 16 ) {
-                $hex = bin2hex( $packed );
-
-                if ( substr( $hex, 0, 24 ) === str_repeat( '0', 20 ) . 'ffff'
-                    || ( substr( $hex, 0, 24 ) === str_repeat( '0', 24 ) && substr( $hex, 24 ) !== str_repeat( '0', 8 ) ) ) {
-                    $mapped = long2ip( hexdec( substr( $hex, 24, 8 ) ) );
-                    return $this->is_safe_ip( $mapped );
-                }
-            }
-        }
-
-        // Blocks ::1, fc00::/7 (unique local), fe80::/10 (link-local),
-        // 10/8, 172.16/12, 192.168/16, 127/8, 0/8, 169.254/16 and friends.
-        return filter_var(
-            $ip,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-        ) !== false;
+        return MBR_LRP_URL_Validator::is_safe_ip( $ip );
     }
 
     /**
@@ -223,116 +216,213 @@ class MBR_LRP_Proxy {
      * @return string|false Absolute URL, or false if it cannot be built.
      */
     private function resolve_relative_url( $base, $relative ) {
-        $parts = wp_parse_url( $base );
-        if ( ! is_array( $parts ) || ! isset( $parts['scheme'], $parts['host'] ) ) {
-            return false;
-        }
-
-        $origin = $parts['scheme'] . '://' . $parts['host']
-            . ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' );
-
-        if ( strpos( $relative, '//' ) === 0 ) {
-            return $parts['scheme'] . ':' . $relative;
-        }
-
-        if ( strpos( $relative, '/' ) === 0 ) {
-            return $origin . $relative;
-        }
-
-        $dir = isset( $parts['path'] ) ? rtrim( dirname( $parts['path'] ), '/' ) : '';
-        return $origin . $dir . '/' . $relative;
+        return MBR_LRP_URL_Validator::absolute_url( $base, $relative );
     }
 
     /**
-     * Validate URL to prevent SSRF attacks
-     * 
-     * @param string $url URL to validate
-     * @return bool True if URL is safe, false otherwise
+     * Validate an outbound URL, and remember what it resolved to.
+     *
+     * All of the actual checks -- scheme, host, literal-IP handling, A and
+     * AAAA resolution, and the port policy -- now live in the shared
+     * validator. The addresses it returns are kept in $this->validated_ips so
+     * the request that follows can be pinned to them.
+     *
+     * @param string $url URL to validate.
+     * @return bool True if the URL is safe to request.
      */
     private function is_valid_stream_url( $url ) {
-        // Parse URL
-        $parsed = parse_url( $url );
-        
-        if ( ! $parsed || ! isset( $parsed['scheme'] ) || ! isset( $parsed['host'] ) ) {
-            return false;
-        }
-        
-        // Only allow HTTP/HTTPS
-        if ( ! in_array( $parsed['scheme'], array( 'http', 'https' ), true ) ) {
-            return false;
-        }
-        
-        $host = strtolower( $parsed['host'] );
-        
-        // Block localhost and common localhost variations
-        $blocked_hosts = array( 'localhost', '127.0.0.1', '::1', '0.0.0.0', 'metadata.google.internal' );
-        if ( in_array( $host, $blocked_hosts, true ) ) {
-            return false;
-        }
-        
-        // Block AWS/GCP metadata endpoints
-        if ( $host === '169.254.169.254' || $host === 'fd00:ec2::254' ) {
-            return false;
-        }
-        
-        // Bracketed IPv6 literals arrive from parse_url as "[::1]".
-        $host_ip = trim( $host, '[]' );
+        $ips = array();
 
-        // When the URL uses a literal IP, judge that address directly.
-        if ( filter_var( $host_ip, FILTER_VALIDATE_IP ) ) {
-            if ( ! $this->is_safe_ip( $host_ip ) ) {
-                return false;
-            }
+        if ( ! MBR_LRP_URL_Validator::validate( $url, $ips ) ) {
+            $this->validated_ips = array();
+            $this->debug_log( 'Rejected unsafe or unresolvable URL', $url );
+            return false;
         }
-        
-        // For hostnames, resolve DNS and reject if ANY resolved address is
-        // private or reserved.
-        //
-        // SECURITY: earlier versions allowed a list of "trusted" streaming
-        // domains to skip this check entirely. That was unsafe -- several of
-        // those providers hand out user-controlled subdomains, and DNS records
-        // can be repointed at any time, which is precisely the DNS-rebinding
-        // case SSRF validation exists to defend against. Every hostname is now
-        // resolved and every resulting address is checked, with no exceptions.
-        if ( ! filter_var( $host, FILTER_VALIDATE_IP ) ) {
-            // Suppress errors and warnings for gethostbynamel
-            $ips = @gethostbynamel( $host );
 
-            // If DNS resolution fails, block it for security
-            if ( $ips === false || empty( $ips ) ) {
-                $this->debug_log( 'Failed to resolve hostname', $host );
-                return false;
-            }
+        $this->validated_ips = $ips;
 
-            // Check each resolved IP
-            foreach ( $ips as $ip ) {
-                if ( ! $this->is_safe_ip( $ip ) ) {
-                    $this->debug_log( 'Hostname resolves to a private or reserved address', $host );
-                    return false;
-                }
-            }
-        }
-        
-        // Restrict to common streaming ports only
-        if ( isset( $parsed['port'] ) ) {
-            $allowed_ports = array( 
-                80, 443,           // HTTP/HTTPS
-                8000, 8080, 8443,  // Common streaming ports
-                8888, 9000,        // Alternative streaming ports
-                1935,              // RTMP
-                4190, 4191,        // Icecast variants
-                9001, 9002,        // More streaming alternatives
-                7000, 7001         // Additional Icecast ports
-            );
-            if ( ! in_array( (int) $parsed['port'], $allowed_ports, true ) ) {
-                $this->debug_log( "Blocked non-standard port {$parsed['port']}", $url );
-                return false;
-            }
-        }
-        
         return true;
     }
-    
+
+    /**
+     * Pin a cURL handle to the addresses the URL was validated against.
+     *
+     * @param resource|CurlHandle $handle cURL handle.
+     * @param string              $url    URL being requested.
+     * @return void
+     */
+    private function pin_curl_dns( $handle, $url ) {
+        MBR_LRP_URL_Validator::pin_curl_handle( $handle, $url, $this->validated_ips );
+    }
+
+    /**
+     * Apply the current DNS pin to a WordPress HTTP API request.
+     *
+     * Hooked temporarily around wp_remote_* calls that fetch a visitor-supplied
+     * URL, so those take the same validated addresses as the direct cURL paths.
+     *
+     * @param resource|CurlHandle $handle cURL handle created by WP_Http_Curl.
+     * @return void
+     */
+    public function apply_pinned_dns( $handle ) {
+        if ( ! empty( $this->pinned_resolve ) && $handle ) {
+            curl_setopt( $handle, CURLOPT_RESOLVE, $this->pinned_resolve );
+        }
+    }
+
+    /**
+     * Fetch a URL with WordPress's HTTP API, following redirects manually so
+     * every hop is revalidated, and pinning each request to validated
+     * addresses.
+     *
+     * WordPress follows up to five redirects by default and does not re-run
+     * our SSRF checks on the way, so any wp_remote_get() handed a
+     * visitor-supplied URL has to set redirection to 0 and do this itself.
+     *
+     * @param string $url  URL to fetch (already validated by the caller).
+     * @param array  $args wp_remote_get() arguments.
+     * @return array|WP_Error Response, or WP_Error on failure.
+     */
+    private function fetch_validated( $url, $args = array() ) {
+        $args['redirection'] = 0;
+        $args['sslverify']   = true;
+
+        $hops = 0;
+
+        while ( true ) {
+            $this->pinned_resolve = MBR_LRP_URL_Validator::curl_resolve_entries( $url, $this->validated_ips );
+            add_action( 'http_api_curl', array( $this, 'apply_pinned_dns' ) );
+
+            $response = wp_remote_get( $url, $args );
+
+            remove_action( 'http_api_curl', array( $this, 'apply_pinned_dns' ) );
+            $this->pinned_resolve = array();
+
+            if ( is_wp_error( $response ) ) {
+                return $response;
+            }
+
+            $code = (int) wp_remote_retrieve_response_code( $response );
+
+            if ( $code < 300 || $code >= 400 ) {
+                return $response;
+            }
+
+            $location = wp_remote_retrieve_header( $response, 'location' );
+
+            if ( is_array( $location ) ) {
+                $location = reset( $location );
+            }
+
+            if ( empty( $location ) || $hops >= MBR_LRP_URL_Validator::MAX_REDIRECTS ) {
+                return $response;
+            }
+
+            $next = MBR_LRP_URL_Validator::absolute_url( $url, $location );
+
+            if ( $next === false || ! $this->is_valid_stream_url( $next ) ) {
+                $this->debug_log( 'Blocked redirect to an unsafe destination', (string) $next );
+                return new WP_Error( 'mbr_lrp_unsafe_redirect', 'Redirect destination failed validation' );
+            }
+
+            $url = $next;
+            $hops++;
+        }
+    }
+
+    /**
+     * Normalise an upstream Content-Type into something browsers will play.
+     *
+     * AAC is where this matters. Shoutcast and Icecast label AAC and HE-AAC
+     * mounts in a dozen different ways -- audio/aacp, audio/aac+,
+     * audio/x-aac, audio/mp4a-latm -- and browsers accept almost none of
+     * them, which is why an AAC station could arrive as "no supported source
+     * was found" while the identical MP3 mount played perfectly. Several
+     * servers also send application/octet-stream, or no Content-Type at all,
+     * in which case the file extension is a better guess than assuming MP3.
+     *
+     * @param string $content_type Upstream Content-Type header value.
+     * @param string $url          URL being streamed, used to infer a type.
+     * @return string Content-Type to send to the listener.
+     */
+    private function normalize_audio_content_type( $content_type, $url = '' ) {
+        $type = strtolower( trim( (string) $content_type ) );
+
+        // Drop any parameters ("audio/aacp;charset=utf-8").
+        $semicolon = strpos( $type, ';' );
+        if ( $semicolon !== false ) {
+            $type = trim( substr( $type, 0, $semicolon ) );
+        }
+
+        // Every AAC spelling in the wild collapses to audio/aac, which is what
+        // Chrome, Firefox, Edge and Safari actually accept for an ADTS stream.
+        if ( strpos( $type, 'aacp' ) !== false
+            || strpos( $type, 'aac+' ) !== false
+            || in_array( $type, array( 'audio/aac', 'audio/x-aac', 'audio/x-hx-aac-adts', 'audio/vnd.dlna.adts', 'audio/mp4a-latm', 'application/aacp', 'audio/mpeg4-generic' ), true ) ) {
+            return 'audio/aac';
+        }
+
+        // Common MP3 aliases; audio/mpeg is the only universally accepted one.
+        if ( in_array( $type, array( 'audio/mp3', 'audio/x-mp3', 'audio/mpeg3', 'audio/x-mpeg', 'audio/mpg', 'audio/x-mpegurl-stream' ), true ) ) {
+            return 'audio/mpeg';
+        }
+
+        if ( in_array( $type, array( 'audio/x-ogg', 'audio/vorbis', 'audio/opus' ), true ) ) {
+            return 'audio/ogg';
+        }
+
+        // Anything genuinely playable is passed straight through.
+        if ( $type !== '' && strpos( $type, 'audio/' ) === 0 ) {
+            return $type;
+        }
+
+        if ( in_array( $type, array( 'application/ogg', 'application/vnd.apple.mpegurl', 'application/x-mpegurl', 'video/mp2t' ), true ) ) {
+            return $type;
+        }
+
+        // No usable Content-Type: infer from the path before falling back.
+        return $this->guess_content_type_from_url( $url );
+    }
+
+    /**
+     * Best-guess Content-Type for a stream URL with no usable header.
+     *
+     * @param string $url Stream URL.
+     * @return string
+     */
+    private function guess_content_type_from_url( $url ) {
+        $path = (string) parse_url( (string) $url, PHP_URL_PATH );
+        $ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+
+        $map = array(
+            'aac'  => 'audio/aac',
+            'aacp' => 'audio/aac',
+            'adts' => 'audio/aac',
+            'm4a'  => 'audio/mp4',
+            'mp4'  => 'audio/mp4',
+            'ogg'  => 'audio/ogg',
+            'oga'  => 'audio/ogg',
+            'opus' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'wav'  => 'audio/wav',
+            'mp3'  => 'audio/mpeg',
+            'ts'   => 'video/mp2t',
+            'm3u8' => 'application/vnd.apple.mpegurl',
+            'm3u'  => 'application/vnd.apple.mpegurl',
+        );
+
+        if ( isset( $map[ $ext ] ) ) {
+            return $map[ $ext ];
+        }
+
+        // A ";type=.aac" or "?type=aac" hint is common on Shoutcast mounts.
+        if ( stripos( (string) $url, 'aac' ) !== false ) {
+            return 'audio/aac';
+        }
+
+        return 'audio/mpeg';
+    }
+
     /**
      * Check rate limit for proxy requests
      * Enhanced with short-term, long-term, and temporary blocking
@@ -403,7 +493,23 @@ class MBR_LRP_Proxy {
             return true;
         }
 
-        $key   = 'mbr_streams_' . md5( $identifier );
+        $key  = 'mbr_streams_' . md5( $identifier );
+        $lock = 'mbr_lrp_slot_' . md5( $identifier );
+
+        // Read-count-write is not atomic on its own: two requests arriving
+        // together could each see the same free slot and both take it, or one
+        // could overwrite the other's write. Under ordinary traffic that never
+        // shows, but deliberate concurrent abuse is exactly what this limit
+        // exists to stop, so the whole sequence is done under a lock.
+        if ( ! $this->acquire_slot_lock( $lock ) ) {
+            // The lock could not be taken -- almost certainly contention
+            // rather than a fault. Let the listener through: refusing genuine
+            // playback because a mutex was busy would be a worse failure than
+            // briefly allowing one stream over the cap.
+            $this->debug_log( 'Could not take slot lock; allowing stream' );
+            return true;
+        }
+
         $now   = time();
         $slots = get_transient( $key );
 
@@ -419,6 +525,7 @@ class MBR_LRP_Proxy {
         }
 
         if ( count( $slots ) >= $max ) {
+            $this->release_slot_lock( $lock );
             $this->debug_log( 'Concurrent stream limit reached' );
             return false;
         }
@@ -430,7 +537,9 @@ class MBR_LRP_Proxy {
         $slots[ $token ] = $now + self::SLOT_TTL;
         set_transient( $key, $slots, self::SLOT_TTL );
 
-        $this->stream_slot   = array( 'key' => $key, 'token' => $token );
+        $this->release_slot_lock( $lock );
+
+        $this->stream_slot   = array( 'key' => $key, 'token' => $token, 'lock' => $lock );
         $this->slot_beat_at  = $now;
 
         // Release the slot however the request ends -- listener navigating
@@ -438,6 +547,68 @@ class MBR_LRP_Proxy {
         register_shutdown_function( array( $this, 'release_stream_slot' ) );
 
         return true;
+    }
+
+    /**
+     * Take an exclusive lock on one client's slot table.
+     *
+     * Uses an INSERT IGNORE against the options table, which the unique index
+     * on option_name makes atomic -- the same mechanism WordPress core uses
+     * for its own upgrader locks. A lock older than SLOT_LOCK_TIMEOUT is
+     * treated as abandoned by a killed worker and taken over.
+     *
+     * @param string $lock_option Option name to lock on.
+     * @return bool True if the lock is held.
+     */
+    private function acquire_slot_lock( $lock_option ) {
+        global $wpdb;
+
+        if ( ! isset( $wpdb ) ) {
+            return false;
+        }
+
+        for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Atomic lock acquisition; no caching possible by design.
+            $acquired = $wpdb->query(
+                $wpdb->prepare(
+                    "INSERT IGNORE INTO `{$wpdb->options}` ( `option_name`, `option_value`, `autoload` ) VALUES (%s, %s, 'no')",
+                    $lock_option,
+                    (string) time()
+                )
+            );
+
+            if ( $acquired ) {
+                return true;
+            }
+
+            // Held by somebody else. If it is stale, clear it and retry.
+            // Read straight from the table: the options cache can hold a value
+            // from earlier in this request, and a stale read here would mean
+            // stealing a lock somebody is legitimately holding.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Lock state must not be cached.
+            $held_since = (int) $wpdb->get_var(
+                $wpdb->prepare( "SELECT option_value FROM `{$wpdb->options}` WHERE option_name = %s LIMIT 1", $lock_option )
+            );
+
+            if ( $held_since === 0 || ( $held_since + self::SLOT_LOCK_TIMEOUT ) < time() ) {
+                delete_option( $lock_option );
+                continue;
+            }
+
+            usleep( 20000 );
+        }
+
+        return false;
+    }
+
+    /**
+     * Release a slot-table lock.
+     *
+     * @param string $lock_option Option name used for the lock.
+     * @return void
+     */
+    private function release_slot_lock( $lock_option ) {
+        delete_option( $lock_option );
     }
 
     /**
@@ -473,6 +644,12 @@ class MBR_LRP_Proxy {
         }
         $this->slot_beat_at = $now;
 
+        if ( ! $this->acquire_slot_lock( $this->stream_slot['lock'] ) ) {
+            // Missing one heartbeat is harmless -- the slot has SLOT_TTL
+            // seconds left and the next write will try again.
+            return;
+        }
+
         $slots = get_transient( $this->stream_slot['key'] );
         if ( ! is_array( $slots ) ) {
             $slots = array();
@@ -480,6 +657,8 @@ class MBR_LRP_Proxy {
 
         $slots[ $this->stream_slot['token'] ] = $now + self::SLOT_TTL;
         set_transient( $this->stream_slot['key'], $slots, self::SLOT_TTL );
+
+        $this->release_slot_lock( $this->stream_slot['lock'] );
     }
 
     /**
@@ -494,6 +673,10 @@ class MBR_LRP_Proxy {
 
         $key   = $this->stream_slot['key'];
         $token = $this->stream_slot['token'];
+        $lock  = $this->stream_slot['lock'];
+
+        $locked = $this->acquire_slot_lock( $lock );
+
         $slots = get_transient( $key );
 
         if ( is_array( $slots ) ) {
@@ -504,6 +687,10 @@ class MBR_LRP_Proxy {
             } else {
                 set_transient( $key, $slots, self::SLOT_TTL );
             }
+        }
+
+        if ( $locked ) {
+            $this->release_slot_lock( $lock );
         }
 
         $this->stream_slot = null;
@@ -933,41 +1120,6 @@ class MBR_LRP_Proxy {
     }
     
     /**
-     * Fetch metadata from stream headers
-     */
-    private function fetch_stream_metadata( $url ) {
-        // Request just headers with Icy-MetaData flag
-        $response = wp_remote_get( $url, array(
-            'timeout' => 10,
-            'sslverify' => true,
-            'stream' => false,
-            'headers' => array(
-                'Icy-MetaData' => '1',
-                'User-Agent' => 'MBR Live Radio Player'
-            )
-        ));
-        
-        if ( is_wp_error( $response ) ) {
-            return false;
-        }
-        
-        // Check for Icecast/Shoutcast headers
-        $icy_name = wp_remote_retrieve_header( $response, 'icy-name' );
-        $icy_description = wp_remote_retrieve_header( $response, 'icy-description' );
-        
-        if ( ! empty( $icy_name ) || ! empty( $icy_description ) ) {
-            $title = ! empty( $icy_name ) ? $icy_name : $icy_description;
-            return array(
-                'title' => sanitize_text_field( $title ),
-                'url' => '',
-                'timestamp' => time()
-            );
-        }
-        
-        return false;
-    }
-    
-    /**
      * Handle stream proxy request
      */
     private function handle_stream_proxy() {
@@ -1006,7 +1158,12 @@ class MBR_LRP_Proxy {
         // string. Only the URL path is considered now.
         $path            = (string) wp_parse_url( $url, PHP_URL_PATH );
         $extension       = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-        $is_hls_manifest = in_array( $extension, array( 'm3u8', 'm3u' ), true );
+        $is_hls_manifest = in_array( $extension, array( 'm3u8', 'm3u', 'pls' ), true );
+
+        // A playlist fetch is a short text request, not a stream, so it is
+        // counted in the manifest bucket. Left out, resolving a .pls station
+        // took one of the listener's concurrent-stream slots before playback
+        // had even begun.
 
         $client_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
 
@@ -1036,8 +1193,16 @@ class MBR_LRP_Proxy {
             exit;
         }
         
-        // Check for Shoutcast URL that needs fixing
-        if ( stripos( $url, ':8000' ) !== false && stripos( $url, '/stream' ) === false && stripos( $url, '.mp3' ) === false ) {
+        // Check for a Shoutcast base URL that needs a stream path appending.
+        // This used to test for ":8000" specifically, which meant a station on
+        // any other port -- and AAC mounts are very often on 8010, 8020 or
+        // 8030 rather than the base port -- never got the correction and was
+        // handed the server's HTML status page instead of audio.
+        // fix_shoutcast_url() returns the URL untouched when it does not apply.
+        $probe_path = (string) wp_parse_url( $url, PHP_URL_PATH );
+        $probe_port = wp_parse_url( $url, PHP_URL_PORT );
+
+        if ( ! empty( $probe_port ) && ( $probe_path === '' || $probe_path === '/' ) ) {
             $url = $this->fix_shoutcast_url( $url );
         }
         
@@ -1131,35 +1296,31 @@ class MBR_LRP_Proxy {
         $is_file_to_proxy = in_array( $ext, array( 'ts', 'm3u8', 'm3u' ), true );
         
         if ( $is_file_to_proxy ) {
-            // For file-based requests (HLS segments, playlists), proxy them
+            // For file-based requests (HLS segments, playlists), proxy them.
+            // Redirects are followed by fetch_validated(), which revalidates
+            // every hop; wp_remote_get() on its own would follow up to five
+            // without rechecking any of them.
             $args = array(
                 'timeout' => 30,
-                'sslverify' => true,
                 'headers' => array(
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'User-Agent' => self::USER_AGENT,
                 ),
             );
             
-            $response = wp_remote_get( $url, $args );
+            $response = $this->fetch_validated( $url, $args );
             
             if ( is_wp_error( $response ) ) {
-                status_header( 500 );
+                status_header( 502 );
                 echo esc_html( 'Failed to fetch: ' . $response->get_error_message() );
                 return;
             }
             
             // Get content type
             $content_type = wp_remote_retrieve_header( $response, 'content-type' );
-            if ( empty( $content_type ) ) {
-                // Guess based on extension
-                if ( stripos( $url, '.ts' ) !== false ) {
-                    $content_type = 'video/mp2t';
-                } elseif ( stripos( $url, '.m3u8' ) !== false || stripos( $url, '.m3u' ) !== false ) {
-                    $content_type = 'application/vnd.apple.mpegurl';
-                } else {
-                    $content_type = 'application/octet-stream';
-                }
+            if ( is_array( $content_type ) ) {
+                $content_type = reset( $content_type );
             }
+            $content_type = $this->normalize_audio_content_type( $content_type, $url );
             
             // Set headers
             status_header( wp_remote_retrieve_response_code( $response ) );
@@ -1168,22 +1329,23 @@ class MBR_LRP_Proxy {
             header( 'Access-Control-Allow-Origin: *' );
             
             // Output body
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Raw manifest or segment data.
             echo wp_remote_retrieve_body( $response );
             exit;
         }
         
-        // For everything else (Icecast, direct streams)
-        // If it's HTTP, we need to proxy it for HTTPS sites
-        // If it's already HTTPS, browser can handle it directly
-        $parsed_url = parse_url( $url );
-        if ( isset( $parsed_url['scheme'] ) && $parsed_url['scheme'] === 'http' ) {
-            // HTTP stream needs proxying for HTTPS compatibility
-            $this->stream_with_passthru( $url );
-        } else {
-            // HTTPS stream - browser can handle directly
-            wp_redirect( $url, 302 );
-            exit;
-        }
+        // Everything else -- Icecast, Shoutcast and direct file streams -- is
+        // streamed through here rather than handed back to the browser.
+        //
+        // Earlier versions redirected HTTPS streams to the browser on the
+        // grounds that it could fetch them itself. That defeated the point of
+        // the request: by the time it reaches the proxy the player has already
+        // decided it wants the stream proxied, usually because the browser
+        // refused it. It is also where AAC stations came unstuck, since a
+        // direct fetch gets the station's own Content-Type -- audio/aacp and
+        // friends, which browsers will not decode -- along with no CORS
+        // headers, instead of the normalised type this proxy sends.
+        $this->stream_with_passthru( $url );
     }
     
     /**
@@ -1206,11 +1368,16 @@ class MBR_LRP_Proxy {
             return $url; // Not a typical Shoutcast base URL
         }
         
-        // Try common Shoutcast stream paths in order of likelihood
+        // Try common Shoutcast stream paths in order of likelihood. The AAC
+        // spellings are here because an AAC mount on a Shoutcast v1 server
+        // frequently answers on ;stream.aac while the MP3 mount answers on
+        // the bare ;, and only trying the MP3 forms found nothing.
         $paths_to_try = array(
             '/;',              // Default Shoutcast stream endpoint
             '/stream',         // Common alternative
             '/;stream.mp3',    // Explicit format
+            '/;stream.aac',    // Explicit AAC format
+            '/stream.aac',     // AAC mount on some builds
             '/;stream.nsv',    // Nullsoft streaming video/audio
         );
         
@@ -1221,28 +1388,24 @@ class MBR_LRP_Proxy {
             }
             $test_url .= $path;
             
-            // Quick test: fetch just headers to see if this returns audio
-            $response = wp_remote_head( $test_url, array(
-                'timeout' => 5,
-                'sslverify' => true,
-                'redirection' => 0, // Don't follow redirects
-                'headers' => array(
-                    'Icy-MetaData' => '1',
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                )
-            ) );
-            
-            if ( is_wp_error( $response ) ) {
+            if ( ! $this->is_valid_stream_url( $test_url ) ) {
                 continue;
             }
             
-            $content_type = wp_remote_retrieve_header( $response, 'content-type' );
-            $icy_name = wp_remote_retrieve_header( $response, 'icy-name' );
+            $probe = $this->probe_stream_headers( $test_url );
+            
+            if ( $probe === false ) {
+                continue;
+            }
+            
+            $content_type = isset( $probe['content_type'] ) ? $probe['content_type'] : '';
+            $icy_name     = isset( $probe['icy_name'] ) ? $probe['icy_name'] : '';
             
             // Check if this returns audio content or has ICY headers (Shoutcast/Icecast indicator)
             if ( 
                 stripos( $content_type, 'audio' ) !== false || 
                 stripos( $content_type, 'mpeg' ) !== false ||
+                stripos( $content_type, 'aac' ) !== false ||
                 stripos( $content_type, 'ogg' ) !== false ||
                 ! empty( $icy_name )
             ) {
@@ -1257,10 +1420,97 @@ class MBR_LRP_Proxy {
     }
     
     /**
+     * Read a stream's response headers without downloading the audio.
+     *
+     * Deliberately a GET that is aborted as soon as the headers arrive, not a
+     * HEAD. Shoutcast servers answer HEAD inconsistently -- 404, 405, 400 or
+     * an empty reply are all common on servers that serve a perfectly good
+     * stream to a real GET -- so probing with HEAD produced false negatives
+     * and sent the caller down the wrong path.
+     *
+     * @param string $url URL to probe (must already be validated).
+     * @return array|false status, content_type, icy_name and location, or false.
+     */
+    private function probe_stream_headers( $url, $timeout = 6 ) {
+        if ( ! function_exists( 'curl_init' ) ) {
+            return false;
+        }
+        
+        $ch = curl_init( $url );
+        
+        if ( ! $ch ) {
+            return false;
+        }
+        
+        $result = array(
+            'status'       => 0,
+            'content_type' => '',
+            'icy_name'     => '',
+            'location'     => '',
+        );
+        
+        curl_setopt( $ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1 );
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, false );
+        curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, false );
+        curl_setopt( $ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );
+        curl_setopt( $ch, CURLOPT_TIMEOUT, $timeout );
+        curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, $timeout );
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $ch, CURLOPT_USERAGENT, self::USER_AGENT );
+        curl_setopt( $ch, CURLOPT_HTTPHEADER, array( 'Icy-MetaData: 1', 'Connection: close' ) );
+        $this->pin_curl_dns( $ch, $url );
+        
+        curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$result ) {
+            // Shoutcast answers "ICY 200 OK" rather than an HTTP status line.
+            if ( preg_match( '#^(?:HTTP/[\d.]+|ICY)\s+(\d{3})#i', $header, $m ) ) {
+                $result['status'] = (int) $m[1];
+            } elseif ( stripos( $header, 'content-type:' ) === 0 ) {
+                $parts = explode( ':', $header, 2 );
+                $result['content_type'] = isset( $parts[1] ) ? trim( $parts[1] ) : '';
+            } elseif ( stripos( $header, 'icy-name:' ) === 0 ) {
+                $parts = explode( ':', $header, 2 );
+                $result['icy_name'] = isset( $parts[1] ) ? trim( $parts[1] ) : '';
+            } elseif ( stripos( $header, 'location:' ) === 0 ) {
+                $parts = explode( ':', $header, 2 );
+                $result['location'] = isset( $parts[1] ) ? trim( $parts[1] ) : '';
+            }
+            
+            return strlen( $header );
+        } );
+        
+        // Abort the moment the first audio byte arrives: we only wanted the
+        // headers, and nothing here should download a stream.
+        curl_setopt( $ch, CURLOPT_WRITEFUNCTION, function( $curl, $data ) {
+            return 0;
+        } );
+        
+        curl_exec( $ch );
+        curl_close( $ch );
+        
+        // A status of 0 with a Content-Type still means the server answered;
+        // some Shoutcast builds send headers with no recognisable status line.
+        if ( $result['status'] === 0 && $result['content_type'] === '' && $result['icy_name'] === '' ) {
+            return false;
+        }
+        
+        return $result;
+    }
+    
+    /**
      * Stream Shoutcast using cURL with proper streaming
      */
     private function stream_with_passthru( $url ) {
         $this->debug_log( 'stream_with_passthru called', $url );
+
+        // Revalidate here rather than trusting an earlier check. Shoutcast
+        // path correction and playlist resolution can both change the URL
+        // between validation and this point, and revalidating also refreshes
+        // the address list the connection is pinned to.
+        if ( ! $this->is_valid_stream_url( $url ) ) {
+            status_header( 403 );
+            exit;
+        }
 
         // Redirects are handled on the real request rather than by a separate
         // probe. A probe cannot be trusted here: many stream servers answer a
@@ -1271,30 +1521,16 @@ class MBR_LRP_Proxy {
         // before it is followed.
         $redirect_hops = 0;
 
-        // First, do a quick check to see if the stream is accessible
-        $test_ch = curl_init( $url );
-        curl_setopt( $test_ch, CURLOPT_RETURNTRANSFER, true );
-        curl_setopt( $test_ch, CURLOPT_HEADER, true );
-        curl_setopt( $test_ch, CURLOPT_NOBODY, true );
-        curl_setopt( $test_ch, CURLOPT_TIMEOUT, 5 );
-        curl_setopt( $test_ch, CURLOPT_SSL_VERIFYPEER, true );
-        curl_setopt( $test_ch, CURLOPT_SSL_VERIFYHOST, 2 );
-        curl_setopt( $test_ch, CURLOPT_FOLLOWLOCATION, false );
-        curl_setopt( $test_ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );
-        curl_setopt( $test_ch, CURLOPT_HTTPHEADER, array(
-            'User-Agent: ' . self::USER_AGENT
-        ));
-        curl_exec( $test_ch );
-        $http_code = curl_getinfo( $test_ch, CURLINFO_HTTP_CODE );
-        curl_close( $test_ch );
-        
-        // If we get 403 or 401, the stream is blocking server connections
-        // Redirect to the stream directly - browsers may have better luck
-        if ( $http_code == 403 || $http_code == 401 ) {
-            $this->debug_log( "Stream returned HTTP {$http_code} - server blocked. Redirecting browser to connect directly.", $url );
-            wp_redirect( $url, 302 );
-            exit;
-        }
+        // There is deliberately no preflight request here any more.
+        //
+        // Checking reachability first meant every stream was opened twice, and
+        // a growing number of stations cannot survive that. Bauer and other
+        // AdsWizz-fronted streams hand out a URL carrying a one-time session
+        // key (aw_0_1st.skey, minted per request by the directory that issued
+        // the playlist); spending it on a probe leaves nothing valid for the
+        // request that actually plays. The real response tells us everything
+        // the probe did, one connection later, so it is read from that
+        // instead.
         
         // Disable all output buffering BEFORE anything else
         while ( ob_get_level() > 0 ) {
@@ -1351,19 +1587,27 @@ class MBR_LRP_Proxy {
         curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
         curl_setopt( $ch, CURLOPT_USERAGENT, self::USER_AGENT );
         curl_setopt( $ch, CURLOPT_BUFFERSIZE, 8192 );
+
+        // Bind the connection to the addresses validation actually approved,
+        // rather than letting cURL run its own second lookup that a hostile
+        // DNS server could answer with an internal address.
+        $this->pin_curl_dns( $ch, $url );
         
         // Don't request Icecast metadata - keep stream pure audio only
         curl_setopt( $ch, CURLOPT_HTTPHEADER, array(
             'Connection: close'
         ));
         
-        // Get headers from stream
+        // Get headers from stream. The default is inferred from the URL rather
+        // than assumed to be MP3: labelling an AAC stream audio/mpeg is a
+        // reliable way to make a browser refuse it.
         $headers_sent = false;
-        $content_type = 'audio/mpeg';
+        $content_type = $this->guess_content_type_from_url( $url );
         $status_code  = 0;
         $location     = '';
+        $stream_url   = $url;
 
-        curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$content_type, &$headers_sent, &$status_code, &$location ) {
+        curl_setopt( $ch, CURLOPT_HEADERFUNCTION, function( $curl, $header ) use ( &$content_type, &$headers_sent, &$status_code, &$location, $stream_url ) {
             // Capture the status line. Shoutcast answers "ICY 200 OK" rather
             // than an HTTP status line, so both shapes are matched.
             if ( preg_match( '#^(?:HTTP/[\d.]+|ICY)\s+(\d{3})#i', $header, $m ) ) {
@@ -1382,15 +1626,10 @@ class MBR_LRP_Proxy {
             if ( stripos( $header, 'Content-Type:' ) === 0 ) {
                 $parts = explode( ':', $header, 2 );
                 if ( isset( $parts[1] ) ) {
-                    $content_type = trim( $parts[1] );
-                    
-                    // Normalize AAC+ variants to standard audio/aac for better browser compatibility
-                    if ( stripos( $content_type, 'aacp' ) !== false || stripos( $content_type, 'aac+' ) !== false ) {
-                        $content_type = 'audio/aac';
-                        // Content-Type normalised to audio/aac for browser compatibility.
-                    }
-                    
-                    // Upstream Content-Type captured for the response header.
+                    // Every AAC spelling, MP3 alias and missing or generic
+                    // type is resolved to something browsers will actually
+                    // decode. See normalize_audio_content_type().
+                    $content_type = $this->normalize_audio_content_type( $parts[1], $stream_url );
                 }
             }
             
@@ -1399,9 +1638,13 @@ class MBR_LRP_Proxy {
                 // Redirects are resolved and validated before streaming begins.
             }
             
-            // A redirect is not the stream. Emitting headers here is what sent
-            // the redirect's HTML body to the listener labelled as audio.
-            if ( $status_code >= 300 && $status_code < 400 ) {
+            // Anything that is not a success is not the stream, and must not
+            // be dressed up as one. A redirect's HTML body used to be
+            // forwarded as audio; so did a 403 refusal page, which is what
+            // reached listeners as "stream format not supported" -- an error
+            // about the audio when the station had in fact declined the
+            // connection outright.
+            if ( $status_code >= 300 ) {
                 return strlen( $header );
             }
 
@@ -1433,8 +1676,9 @@ class MBR_LRP_Proxy {
         curl_setopt( $ch, CURLOPT_WRITEFUNCTION, function( $ch, $data ) use ( &$bytes_written, &$first_bytes_logged, &$status_code ) {
             $data_len = strlen( $data );
 
-            // Swallow a redirect's body rather than passing it to the listener.
-            if ( $status_code >= 300 && $status_code < 400 ) {
+            // Swallow the body of any non-success response rather than
+            // passing an error page to the listener labelled as audio.
+            if ( $status_code >= 300 ) {
                 return $data_len;
             }
             
@@ -1499,6 +1743,35 @@ class MBR_LRP_Proxy {
         }
         
         curl_close( $ch );
+
+        // The station refused or failed the request. Report that plainly
+        // rather than letting the listener see a format error.
+        if ( $status_code >= 400 ) {
+            $this->debug_log( "Stream returned HTTP {$status_code}", $url );
+
+            // A 401 or 403 usually means this server is being refused
+            // specifically, often because the station blocks datacentre
+            // addresses. The browser may fare better connecting itself -- but
+            // only over HTTPS, since handing an http:// URL back to a page
+            // served over HTTPS is blocked as mixed content.
+            if ( ( $status_code === 401 || $status_code === 403 ) && stripos( $url, 'https://' ) === 0 && ! headers_sent() ) {
+                wp_redirect( $url, 302 );
+                exit;
+            }
+
+            if ( ! headers_sent() ) {
+                status_header( 502 );
+                header( 'Content-Type: text/plain; charset=utf-8' );
+                header( 'Access-Control-Allow-Origin: *' );
+                echo esc_html(
+                    'MBR_STREAM_ERROR: the station returned HTTP ' . $status_code . '. '
+                    . 'The stream address may have expired, or the station may be refusing requests from this server.'
+                );
+            }
+
+            exit;
+        }
+
         exit;
     }
     
@@ -1510,30 +1783,52 @@ class MBR_LRP_Proxy {
      * Return playlist content as text
      */
     private function return_playlist_content( $url ) {
-        $response = wp_remote_get( $url, array(
+        // Playlist hosts redirect constantly; fetch_validated() follows those
+        // hops itself so each destination is revalidated first.
+        $response = $this->fetch_validated( $url, array(
             'timeout' => 10,
-            'sslverify' => true,
-            'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'user-agent' => self::USER_AGENT,
         ) );
         
         if ( is_wp_error( $response ) ) {
-            status_header( 500 );
-            echo esc_html( 'Failed to fetch playlist: ' . $response->get_error_message() );
+            status_header( 502 );
+            header( 'Content-Type: text/plain; charset=utf-8' );
+            header( 'Access-Control-Allow-Origin: *' );
+            echo esc_html( 'MBR_PLAYLIST_ERROR: could not reach the playlist host -- ' . $response->get_error_message() );
             exit;
         }
         
+        $code = (int) wp_remote_retrieve_response_code( $response );
         $body = wp_remote_retrieve_body( $response );
         
-        if ( empty( $body ) ) {
-            status_header( 500 );
-            echo esc_html( 'Empty playlist response' );
-            exit;
-        }
-        
-        // Return as plain text with security headers
         header( 'Content-Type: text/plain; charset=utf-8' );
         header( 'X-Content-Type-Options: nosniff' );
         header( 'Access-Control-Allow-Origin: *' );
+        
+        // The response used to be forwarded whatever it was. A directory that
+        // refuses the request answers with an HTML error or challenge page and
+        // HTTP 403, and that page was handed to the playlist parser, which
+        // dutifully treated its markup as candidate stream URLs. The listener
+        // then saw "stream format not supported" -- a message about the audio,
+        // when the real fault was that the playlist was never fetched at all.
+        if ( $code < 200 || $code >= 300 ) {
+            status_header( 502 );
+            echo esc_html( 'MBR_PLAYLIST_ERROR: the playlist host returned HTTP ' . $code . '. It is most likely refusing requests from this server.' );
+            exit;
+        }
+        
+        if ( trim( $body ) === '' ) {
+            status_header( 502 );
+            echo esc_html( 'MBR_PLAYLIST_ERROR: the playlist host returned an empty response.' );
+            exit;
+        }
+        
+        if ( preg_match( '#<\s*(?:!doctype|html|head|body|script)\b#i', substr( $body, 0, 1024 ) ) ) {
+            status_header( 502 );
+            echo esc_html( 'MBR_PLAYLIST_ERROR: the playlist host returned a web page rather than a playlist. It is most likely blocking requests from this server, or the URL is wrong.' );
+            exit;
+        }
+        
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Raw playlist content
         echo $body;
         exit;

@@ -50,6 +50,9 @@ if ( $proxy_enabled ) {
 // Use AJAX endpoint with trailing & so JS can append url parameter, and include token
 $proxy_url = $proxy_enabled ? admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ) : '';
 
+// Proxy Mode: 'http_only' (default) or 'all'.
+$proxy_mode = get_option( 'mbr_lrp_require_proxy', 'http_only' ) === 'all' ? 'all' : 'http_only';
+
 // Get appearance settings from post meta
 $dark_mode = get_post_meta( $station_id, '_mbr_lrp_dark_mode', true ) === '1';
 $dark_mode_class = $dark_mode ? ' mbr-dark-mode' : '';
@@ -178,6 +181,7 @@ $player_id = 'mbr-radio-player-popup-' . $station_id;
      data-stream="<?php echo esc_url( $stream_url ); ?>"
      data-proxy-url="<?php echo esc_url( $proxy_url ); ?>"
      data-proxy-enabled="<?php echo $proxy_enabled ? '1' : '0'; ?>"
+     data-proxy-mode="<?php echo esc_attr( $proxy_mode ); ?>"
      data-station-id="<?php echo esc_attr( $station_id ); ?>">
     <div class="mbr-player-inner">
         <?php if ( $station_art ) : ?>

@@ -6,7 +6,7 @@
 
 ### Gorgeous live radio for WordPress. Free. Forever. No catch.
 
-![Version](https://img.shields.io/badge/version-3.12.6-blue.svg)
+![Version](https://img.shields.io/badge/version-3.12.7-blue.svg)
 ![WordPress](https://img.shields.io/badge/WordPress-5.2%2B-blue.svg)
 ![Tested](https://img.shields.io/badge/tested%20up%20to-7.0-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.2%2B-purple.svg)
@@ -18,21 +18,50 @@ Most WordPress audio players look like they were designed in 2009. This one does
 
 No subscriptions. No "pro" tier waiting in the wings. No data harvesting. Built by one developer in Cleethorpes, UK, who just wanted radio streaming that works.
 
-**[⬇️ Download v3.12.6](https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.6.zip)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
+**[⬇️ Download v3.12.7](https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.7.zip)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
 
 ---
 
-## 🔒 3.12.6 is a security release
+## 📻 3.12.7 — the stations that wouldn't play, now play
 
-If you're running 3.12.2 or earlier, **please update**.
+If a station has ever refused to start on you, this is the release to update to.
 
-An obsolete proxy file (`proxy-stream-v2.php`) was being shipped inside the plugin folder. Nothing called it — it was left over from an older approach — but it sat there reachable over the web with no authentication and no address validation, meaning it could be used to make requests from your server to anywhere, including your own internal network. It's gone.
+### `.pls` playlists now work
 
-Alongside that: TLS certificate verification is back on for every outbound connection, redirects are re-validated at every hop instead of being followed blindly, artwork URLs supplied by the *broadcaster* are now validated before your server contacts them, and full stream URLs are no longer written to the PHP error log (they can carry access tokens).
+Most UK station directories don't hand you a stream address. They hand you a **`.pls` playlist** — a small file with the real address inside it. The player never knew how to read one. It took the playlist file itself and gave it to the browser as audio, which is a bit like passing someone a menu and asking them to eat it.
 
-There are also some sensible new limits — proxied streams cap at two hours instead of running indefinitely, and each listener gets three simultaneous streams. That one matters most on shared hosting. Both are filterable.
+Paste a `.pls` or `.m3u` link straight into the Stream URL field now and it just works. Where a directory issues an address carrying a short-lived session key, the player notices when it has gone stale and fetches a fresh one rather than sitting there broken.
 
-Nothing about how the player looks or behaves has changed. It's a straight security update.
+### AAC stations that used to fail
+
+Several separate things were conspiring against AAC, and all of them are fixed:
+
+- 🏷️ **Stations label AAC in a dozen ways** — `audio/aacp`, `audio/aac+`, `audio/x-aac`, `audio/mp4a-latm` — and browsers accept almost none of them. They're all normalised on the way through the proxy now. Streams that send no label at all are worked out from the address rather than assumed to be MP3.
+- 🔌 **Non-standard ports were blocked outright.** The proxy allowed thirteen specific ports. Shoutcast boxes routinely run mounts on 8010, 8020, 8030, 8100 — *very* often with the AAC mount ten or twenty above the MP3 one. So the MP3 stream worked and the AAC stream on the same server didn't.
+- 🚫 **The player was demanding CORS headers it never needed.** Most Icecast and Shoutcast servers don't send them, and plain audio playback doesn't require them — but asking for them made the browser refuse the stream anyway.
+- 🔁 **HTTPS streams were never proxied**, so the fixes above never reached them.
+
+### Errors that tell you the truth
+
+A station refusing the connection used to send back an error page, which the proxy forwarded with a 200 status and an audio content type. The browser dutifully tried to decode a web page as music and reported *"stream format not supported"* — an error about the audio, when the audio had never arrived.
+
+Now a failed playlist says the playlist failed, a refused stream says the station refused it, and a format error means an actual format problem.
+
+### Also in 3.12.7
+
+- ⚙️ **"Proxy all streams" actually does something.** The setting was saved and never read.
+- 🩹 **Streams are opened once, not twice.** The reachability check was spending the one-time session key that ad-fronted stations issue, leaving nothing valid for the request that plays.
+- 🗂️ **Assets are versioned by file modification time.** The front-end files could never be cached; the admin files could go stale, so the preview could quietly run older code than the front end.
+
+### 🔒 And the security work is finished
+
+3.12.6 closed the big holes. 3.12.7 clears the remainder flagged by the independent review:
+
+- Hostnames are checked for **both IPv4 and IPv6** records. The old check read IPv4 only, so a host publishing a public A record alongside an internal AAAA record could pass validation and then be reached over IPv6.
+- Connections are **pinned to the addresses that passed validation**, so a hostname can't resolve safely during the check and differently at connection time.
+- The simultaneous-stream limit is now enforced **atomically**.
+- All address validation lives in **one shared component**, used by the stream proxy and the metadata proxy alike. There were two, and the second was the weaker.
+- Redirects followed when fetching playlists and HLS segments are **revalidated at every hop**.
 
 ---
 
@@ -139,8 +168,9 @@ Works in Gutenberg (Shortcode block), the Classic Editor, and any page builder t
 
 | Format | Support | Now playing | Track artwork |
 |--------|---------|-------------|---------------|
-| **MP3 / AAC / OGG** | Direct stream URLs, including port-based (`:8000`) streams | ✅ | ✅ |
+| **MP3 / AAC / AAC+ / OGG** | Direct stream URLs, including mounts on any port | ✅ | ✅ |
 | **Shoutcast / Icecast** | Fully supported | ✅ | ✅ |
+| **`.pls` / `.m3u` playlists** | Resolved automatically, session keys refreshed | ✅ | ✅ |
 | **HLS (.m3u8)** | Native in Safari, hls.js everywhere else | ⚠️ Stream-dependent | ⚠️ Stream-dependent |
 
 Track artwork needs a track title to work from. Icecast and Shoutcast stations broadcast one; most HLS streams (including BBC Radio) send no metadata at all, so those show your station artwork instead. That's the broadcaster's choice, not the plugin's.
@@ -159,7 +189,7 @@ Works in every modern desktop and mobile browser. HTTPS recommended (and require
 
 ## 📖 Documentation
 
-The **[full User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** covers everything in 24 illustrated pages — installation, both player modes, all six skins, the shortcode reference, multi-station groups, track artwork and the lightbox, proxy settings, FAQs, troubleshooting and a full privacy breakdown.
+The **[full User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** covers everything in 26 illustrated pages — installation, both player modes, all six skins, the shortcode reference, multi-station groups, track artwork and the lightbox, proxy settings, FAQs, troubleshooting and a full privacy breakdown.
 
 ---
 
@@ -187,7 +217,10 @@ Yes, in 3.11.2. A rate-limiting bug cut listeners off from metadata after roughl
 The plugin checks a GitHub-hosted manifest via Plugin Update Checker. When a new version ships, it appears on your Plugins screen like any other update — one click to install.
 
 **My stream won't play — help?**
-Nine times out of ten it's a CORS issue or an HTTP stream on an HTTPS site. Enable the built-in proxy in the station settings, or check the stream URL loads directly in a browser tab first.
+Update to 3.12.7 first — it fixed several whole categories of this. If it persists, enable the built-in proxy in the station settings and try setting Proxy Mode to "Proxy all streams". Check the stream URL loads directly in a browser tab too. The console now names the actual problem rather than blaming the audio format.
+
+**Can I use a `.pls` link from a station directory?**
+Yes, since 3.12.7. Paste it straight into the Stream URL field — the player reads the real stream address out of it, and refreshes the link automatically if it turns out to have expired.
 
 ---
 
@@ -210,4 +243,4 @@ GPL-2.0-or-later. Use it, fork it, ship it on client sites — it's yours.
 
 ---
 
-<p align="center"><strong><a href="https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.6.zip">⬇️ Download MBR Live Radio Player v3.12.6</a></strong><br>Free. Forever. No catch.</p>
+<p align="center"><strong><a href="https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.7.zip">⬇️ Download MBR Live Radio Player v3.12.7</a></strong><br>Free. Forever. No catch.</p>

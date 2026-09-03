@@ -3,7 +3,7 @@
  * Plugin Name: MBR Live Radio Player
  * Plugin URI: https://littlewebshack.com/radio/
  * Description: Beautiful, modern live radio player for WordPress. Create unlimited radio stations with custom artwork and HLS stream support.
- * Version: 3.12.6
+ * Version: 3.12.7
  * Author: Robert Palmer
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-live-radio-player
@@ -41,7 +41,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 
 
 // Define plugin constants
-define( 'MBR_LRP_VERSION', '3.12.6' );
+define( 'MBR_LRP_VERSION', '3.12.7' );
 define( 'MBR_LRP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_LRP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -77,6 +77,37 @@ function mbr_lrp_activation_clear_cache() {
 }
 
 /**
+ * Version string for an enqueued plugin asset.
+ *
+ * Uses the file's own modification time alongside the plugin version, so the
+ * URL changes exactly when the file changes and never otherwise.
+ *
+ * This matters on hosts with aggressive caching. The admin assets were
+ * versioned with the plugin version alone, which meant an edited file shipped
+ * under the same version kept its old URL and browsers went on serving the
+ * stale copy -- the front-end player would be running new code while the admin
+ * preview quietly ran old code, which makes for a baffling bug hunt. The front
+ * end had the opposite problem: it appended time(), so its URL changed on every
+ * single page load and the file could never be cached at all.
+ *
+ * @param string $relative_path Path relative to the plugin directory.
+ * @return string Version string for wp_enqueue_*.
+ */
+function mbr_lrp_asset_version( $relative_path ) {
+    $file = MBR_LRP_PLUGIN_DIR . ltrim( $relative_path, '/' );
+
+    if ( file_exists( $file ) ) {
+        $modified = @filemtime( $file );
+
+        if ( $modified ) {
+            return MBR_LRP_VERSION . '.' . $modified;
+        }
+    }
+
+    return MBR_LRP_VERSION;
+}
+
+/**
  * Get or generate proxy authentication token
  * This provides an additional security layer for standalone proxy files
  */
@@ -90,6 +121,7 @@ function mbr_lrp_get_proxy_token() {
 }
 
 // Include required files
+require_once MBR_LRP_PLUGIN_DIR . 'includes/class-url-validator.php';
 require_once MBR_LRP_PLUGIN_DIR . 'includes/class-post-type.php';
 require_once MBR_LRP_PLUGIN_DIR . 'includes/class-meta-boxes.php';
 require_once MBR_LRP_PLUGIN_DIR . 'includes/class-shortcode.php';

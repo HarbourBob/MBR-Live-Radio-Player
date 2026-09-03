@@ -127,7 +127,7 @@ class MBR_LRP_Meta_Boxes {
                         placeholder="https://example.com/stream.m3u8"
                     />
                     <span class="description">
-                        <?php esc_html_e( 'Live stream URL. Supports HLS (.m3u8), MP3, AAC, and Shoutcast/Icecast (.m3u).', 'mbr-live-radio-player' ); ?>
+                        <?php esc_html_e( 'Live stream URL. Supports HLS (.m3u8), MP3, AAC, Shoutcast/Icecast, and .m3u or .pls playlists.', 'mbr-live-radio-player' ); ?>
                     </span>
                 </p>
             </div>
@@ -621,7 +621,7 @@ class MBR_LRP_Meta_Boxes {
                 'mbr-lrp-player',
                 MBR_LRP_PLUGIN_URL . 'assets/css/player.css',
                 array(),
-                MBR_LRP_VERSION
+                mbr_lrp_asset_version( 'assets/css/player.css' )
             );
             
             // Admin CSS
@@ -629,7 +629,7 @@ class MBR_LRP_Meta_Boxes {
                 'mbr-lrp-admin',
                 MBR_LRP_PLUGIN_URL . 'assets/css/admin.css',
                 array( 'wp-color-picker' ),
-                MBR_LRP_VERSION
+                mbr_lrp_asset_version( 'assets/css/admin.css' )
             );
             
             // Admin JS
@@ -637,7 +637,7 @@ class MBR_LRP_Meta_Boxes {
                 'mbr-lrp-admin',
                 MBR_LRP_PLUGIN_URL . 'assets/js/admin.js',
                 array( 'jquery', 'wp-color-picker', 'jquery-ui-sortable' ),
-                MBR_LRP_VERSION,
+                mbr_lrp_asset_version( 'assets/js/admin.js' ),
                 true
             );
             
@@ -655,6 +655,8 @@ class MBR_LRP_Meta_Boxes {
                 array(
                     'proxyUrl'     => admin_url( 'admin-ajax.php?action=mbr_proxy_stream&token=' . urlencode( $proxy_token ) . '&' ),
                     'proxyEnabled' => get_option( 'mbr_lrp_proxy_enabled', '1' ) === '1',
+                    'proxyMode'    => get_option( 'mbr_lrp_require_proxy', 'http_only' ) === 'all' ? 'all' : 'http_only',
+                    'build'        => mbr_lrp_asset_version( 'assets/js/admin.js' ),
                     'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
                 )
             );

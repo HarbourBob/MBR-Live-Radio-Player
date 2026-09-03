@@ -1,12 +1,12 @@
 === MBR Live Radio Player ===
 Contributors: harbourbob
 Plugin URI: https://littlewebshack.com/radio/
-Tags: radio, player, live stream, audio, hls, podcast, mp3, file player, playlist
+Tags: radio, player, live stream, audio, hls, podcast, mp3, aac, file player, playlist
 Author: Robert Palmer
 Author URI: https://madebyrobert.co.uk
 Requires at least: 5.2
 Tested up to: 7.0
-Stable tag: 3.12.6
+Stable tag: 3.12.7
 Requires PHP: 7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -32,8 +32,9 @@ Upload one or more audio files from the WordPress Media Library and the player b
 = Stream Format Support =
 
 * HLS (.m3u8) — adaptive bitrate streaming
-* Shoutcast — .m3u playlists with automatic stream URL detection
+* Shoutcast — including mounts on non-standard ports
 * Icecast — full ICY metadata support
+* .pls and .m3u playlists — resolved automatically, including station directory links
 * MP3, AAC, OGG, and most other browser-native audio formats
 
 = File Player Features =
@@ -117,7 +118,7 @@ Clean, well-documented code following WordPress coding standards throughout. Ass
 
 = What stream formats are supported? =
 
-HLS (.m3u8), MP3, AAC, OGG, Shoutcast (.m3u playlists), Icecast, and most browser-native audio formats.
+HLS (.m3u8), MP3, AAC, AAC+ (HE-AAC), OGG, Shoutcast, Icecast, .pls and .m3u playlists, and most browser-native audio formats.
 
 = Does it work with BBC Radio, SomaFM, and similar services? =
 
@@ -188,6 +189,37 @@ This plugin bundles the following third-party library:
 * Why bundled: Required for HLS stream playback in Chrome, Firefox, and Edge. Safari uses native HLS and does not require this library.
 
 == Changelog ==
+
+= 3.12.7 =
+**Fixes .pls playlist stations and a range of AAC playback failures, and completes the security work begun in 3.12.6. Please update.**
+
+Playback
+
+* NEW: .pls playlists are now supported. This is the format most station directories hand out, and it was never parsed — the player was given the playlist file itself as audio, which no browser can play. Both .pls and .m3u links can now be pasted straight into the Stream URL field.
+* FIX: Playlist detection now examines the URL path rather than the whole address, so a query string can no longer hide the extension. A link such as "…/playlist.pls?station=name-aac" was not recognised as a playlist at all.
+* FIX: The first entry in a playlist is now used. Previously the second entry was chosen whenever a playlist held more than one, on the assumption it was higher quality; the later entries are failover mirrors, and on a .pls file the second line is not even a stream address.
+* FIX: Playlist parsing now accepts only lines that are actually URLs. If a directory answered with an error page instead of a playlist, its markup was taken as the stream address and the listener saw a format error, which pointed at the audio when the playlist had never arrived.
+* FIX: The player no longer requests streams with cross-origin credentials. Doing so made the browser demand CORS headers that most Icecast and Shoutcast servers do not send, so stations that need no CORS at all failed with "no supported source was found". Nothing in the player reads the audio data, so nothing required it.
+* FIX: Streams on non-standard ports are no longer rejected. The proxy allowed thirteen specific ports; Shoutcast and Icecast hosts routinely run mounts on 8010, 8020, 8030, 8100 and dozens more — very often with the AAC mount ten or twenty above the MP3 one — so a large share of ordinary stations were blocked outright. Every destination address is still required to be a public one, and a deny list now covers ports belonging to well-known services.
+* FIX: AAC content types are normalised. Stations label AAC and HE-AAC mounts as audio/aacp, audio/aac+, audio/x-aac, audio/mp4a-latm and more, and browsers accept almost none of them. Where a station sends no type at all, or a generic one, the format is inferred from the address instead of being assumed to be MP3.
+* FIX: HTTPS streams are now proxied when the player asks for it, rather than being handed back to the browser. Previously the normalised content type and CORS headers never reached the streams that most needed them.
+* FIX: A response that is not a success is no longer passed to the listener as audio. A station refusing the connection returned an error page, which was forwarded with a 200 status and an audio content type and reached the listener as "stream format not supported".
+* FIX: The reachability check before streaming has been removed. Every stream was opened twice, and stations whose address carries a one-time session key had it spent on the check, leaving nothing valid for the request that actually plays.
+* FIX: A stream address taken from a playlist is re-resolved once if playback fails, so a session key that expired between page load and pressing play recovers by itself.
+* FIX: The "Proxy all streams" setting now works. It was saved on the settings screen but never read, so choosing it had no effect.
+* FIX: Shoutcast path correction now applies to any port rather than only :8000, and includes the AAC mount paths.
+* FIX: Stream probing uses an aborted GET rather than a HEAD request throughout. Shoutcast servers answer HEAD inconsistently, and a refusal was previously enough to redirect the listener to an address the browser then blocked as mixed content.
+* Playlist fetches always use the proxy where it is enabled, since station directories send no cross-origin headers, and no longer count against a listener's simultaneous-stream allowance.
+* Player CSS and JavaScript are now versioned by file modification time. The front-end files carried a timestamp that changed on every page load and could never be cached; the admin files carried the plugin version alone and could go stale between releases, so the admin preview could quietly run older code than the front end.
+
+Security
+
+* SECURITY: Hostnames are now resolved and checked for both A and AAAA records. The previous check read IPv4 records only, so a host publishing a public IPv4 address alongside an internal IPv6 one could pass validation and then be reached over IPv6.
+* SECURITY: Connections are pinned to the addresses that passed validation, so a hostname cannot resolve to a safe address during the check and a different one when the connection is made.
+* SECURITY: The per-listener limit on simultaneous streams is now enforced atomically. Reading, counting and writing the slot table was not a single operation, so simultaneous requests could exceed the limit or overwrite one another.
+* SECURITY: All address validation now lives in one shared component used by both the stream proxy and the standalone metadata proxy. There were two implementations, and the metadata one was the weaker; a hardening change made in one could be forgotten in the other.
+* SECURITY: Redirects followed while fetching playlists, HLS manifests and segments are revalidated at every hop. WordPress follows up to five redirects by default without re-running the plugin's checks.
+* Removed an unused internal method that would have downloaded an entire stream into memory.
 
 = 3.12.6 =
 **Fixes stream playback for stations whose URL redirects. Please update.**
@@ -396,6 +428,9 @@ With thanks to the third-party code audit that prompted this review.
 * Shortcode integration
 
 == Upgrade Notice ==
+
+= 3.12.7 =
+Fixes .pls playlist stations, which never worked, and a range of AAC playback failures. Also completes the security work started in 3.12.6. Recommended for everyone.
 
 = 3.9.11 =
 Adds live admin preview for File Player mode. Fully interactive — plays audio in the admin and updates automatically as you build your playlist.

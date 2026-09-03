@@ -205,6 +205,73 @@
     }
     
     // Initialize all players on page
+    /**
+     * Is this URL a playlist that has to be resolved before it can be played?
+     *
+     * Tests the path, not the whole URL, so a query string can neither create
+     * a false match nor hide a real one -- a station URL such as
+     * "…/bauerflash.pls?station=name-aac" carries its extension before the
+     * query, and the previous substring test on the whole URL missed .pls
+     * entirely.
+     *
+     * .m3u8 is excluded: that is HLS and is handled by hls.js, not here.
+     */
+    function isPlaylistUrl(url) {
+        if (!url) { return false; }
+        var path = String(url).split('#')[0].split('?')[0];
+        var dot  = path.lastIndexOf('.');
+        if (dot === -1) { return false; }
+        var ext = path.slice(dot + 1).toLowerCase();
+        return ext === 'm3u' || ext === 'pls';
+    }
+
+    /**
+     * Extract stream URLs from an M3U or PLS playlist.
+     *
+     * PLS is the format most UK station directories hand out -- Bauer,
+     * Absolute, Planet Rock and everything on radiofeeds.net -- and it was not
+     * understood at all. A PLS file is an INI: entries are "File1=http://…",
+     * numbered from 1, alongside Title, Length, NumberOfEntries and Version
+     * lines. Feeding those lines through the M3U parser produced rubbish like
+     * "NumberOfEntries=1" as the stream URL, and handing that to an <audio>
+     * element is what surfaced as the stream simply not playing.
+     *
+     * @param {string} text Raw playlist body.
+     * @return {string[]} Stream URLs in playlist order.
+     */
+    function parsePlaylist(text) {
+        var lines = String(text || '').split(/\r?\n/);
+        var i, line;
+
+        // PLS: collect FileN= entries and return them in index order.
+        if (/^\s*\[playlist\]/i.test(text) || /^\s*File\d*\s*=/im.test(text)) {
+            var entries = [];
+            for (i = 0; i < lines.length; i++) {
+                var m = lines[i].match(/^\s*File(\d*)\s*=\s*(.+?)\s*$/i);
+                if (m && m[2]) {
+                    entries.push({ index: parseInt(m[1], 10) || 0, url: m[2] });
+                }
+            }
+            entries.sort(function(a, b) { return a.index - b.index; });
+            return entries.map(function(e) { return e.url; }).filter(function(u) {
+                return /^(https?:)?\/\//i.test(u);
+            });
+        }
+
+        // M3U: URL-shaped lines only. Accepting any non-comment line meant
+        // that when a directory answered with an HTML page instead of a
+        // playlist, markup such as "<html>" was taken as a stream URL and
+        // handed to the audio element.
+        var urls = [];
+        for (i = 0; i < lines.length; i++) {
+            line = lines[i].trim();
+            if (line && line.charAt(0) !== '#' && /^(https?:)?\/\//i.test(line)) {
+                urls.push(line);
+            }
+        }
+        return urls;
+    }
+
     function initPlayers() {
         var players = document.querySelectorAll('.mbr-radio-player');
         
@@ -259,24 +326,72 @@
             return;
         }
         
-        // Check if we need to proxy the stream
-        // Only proxy HTTP streams when the page is HTTPS (mixed content would be blocked)
+        // Proxy Mode, from Radio Stations > Proxy Settings. 'http_only' proxies
+        // insecure streams on secure pages; 'all' routes every stream through
+        // the proxy, which is what you want for a station whose Content-Type or
+        // missing CORS headers stop the browser playing it directly.
+        var proxyMode = playerElement.dataset.proxyMode === 'all' ? 'all' : 'http_only';
         var pageIsHttps = window.location.protocol === 'https:';
         var streamIsHttp = streamUrl.indexOf('http://') === 0;
-        var needsProxy = proxyEnabled && streamIsHttp && pageIsHttps;
-        var finalStreamUrl = streamUrl;
         
-        if (needsProxy && proxyUrl) {
-            // Use proxy for HTTP streams on HTTPS pages
-            finalStreamUrl = proxyUrl + 'url=' + encodeURIComponent(streamUrl);
-            console.log('Using proxy for HTTP stream on HTTPS page:', streamUrl);
+        // Is this URL already pointing at our own proxy?
+        function isProxiedUrl(url) {
+            return !!(url && proxyUrl && url.indexOf(proxyUrl) === 0);
+        }
+        
+        function proxifyUrl(url) {
+            return proxyUrl + 'url=' + encodeURIComponent(url);
+        }
+        
+        // Single decision point for every stream URL the player loads, so the
+        // initial load, the station switcher and the playlist resolver all
+        // behave identically.
+        function shouldProxyUrl(url) {
+            if (!proxyEnabled || !proxyUrl || !url || isProxiedUrl(url)) {
+                return false;
+            }
+            if (url.indexOf('http://') === 0 && pageIsHttps) {
+                return true; // Mixed content would be blocked outright
+            }
+            return proxyMode === 'all' && /^https?:\/\//i.test(url);
+        }
+        
+        function resolveStreamSrc(url) {
+            return shouldProxyUrl(url) ? proxifyUrl(url) : url;
+        }
+        
+        var finalStreamUrl = resolveStreamSrc(streamUrl);
+        
+        if (finalStreamUrl !== streamUrl) {
+            console.log('Using proxy for stream:', streamUrl);
         } else if (streamIsHttp && !pageIsHttps) {
             console.log('HTTP stream on HTTP page - no proxy needed:', streamUrl);
         }
         
+        // The unproxied URL currently loaded, so an error can be retried
+        // through the proxy. Kept separate from actualStreamUrl, which the
+        // metadata poller owns.
+        var rawStreamUrl = streamUrl;
+        var proxyRetryTried = false;
+        
+        // When the stream URL came from a playlist, remember the playlist so
+        // it can be resolved again. Stations fronted by an ad platform hand
+        // out a URL carrying a short-lived session key minted when the
+        // playlist is fetched; by the time a listener presses play, that key
+        // may already have expired, and the only cure is a fresh playlist.
+        var playlistSourceUrl = isPlaylistUrl(streamUrl) ? streamUrl : '';
+        var playlistRetryTried = false;
+        
         var audio = new Audio();
         audio.preload = 'metadata'; // Changed from 'auto' - only preload metadata, not the whole stream
-        audio.crossOrigin = 'anonymous'; // Enable CORS for better compatibility
+        
+        // NOTE: crossOrigin is deliberately NOT set. Setting it to 'anonymous'
+        // makes the browser require CORS headers from the station, and most
+        // Icecast and Shoutcast servers send none -- the load then fails with
+        // MEDIA_ERR_SRC_NOT_SUPPORTED even though plain playback needs no CORS
+        // at all. Nothing here reads the audio data (no Web Audio, no canvas),
+        // so there is nothing to gain from it. Track metadata is fetched
+        // server-side.
         
         // CRITICAL: For live streams, we need to prevent excessive buffering
         // Browsers can buffer minutes of audio, causing the stream to "loop" old content
@@ -398,73 +513,108 @@
         
         console.log('Initializing player with stream:', streamUrl);
         
-        // Check if stream is a playlist that needs parsing
-        if (streamUrl.indexOf('.m3u') !== -1 && streamUrl.indexOf('.m3u8') === -1) {
-            // This is a Shoutcast/Icecast .m3u playlist, fetch and parse it
-            console.log('Detected .m3u playlist, fetching actual stream URL...');
+        /**
+         * Fetch a playlist, pick the first stream in it, and start playing.
+         * Follows one further hop if a playlist points at another playlist,
+         * which station directories occasionally do.
+         */
+        function resolvePlaylist(fetchUrl, originalUrl, depth, onResolved) {
+            var statusEl = playerElement.querySelector('.mbr-status-text');
             
-            // If the playlist URL is HTTP and we're on HTTPS, use the proxy to fetch it
-            var playlistFetchUrl = streamUrl;
-            if (proxyEnabled && streamUrl.indexOf('http://') === 0 && pageIsHttps && proxyUrl) {
-                playlistFetchUrl = proxyUrl + 'playlist=1&url=' + encodeURIComponent(streamUrl);
-                console.log('Using proxy to fetch playlist:', playlistFetchUrl);
-            }
-            
-            // Fetch the playlist
-            fetch(playlistFetchUrl)
+            fetch(fetchUrl)
                 .then(function(response) {
-                    return response.text();
+                    return response.text().then(function(body) {
+                        return { ok: response.ok, status: response.status, body: body };
+                    });
                 })
-                .then(function(playlistText) {
-                    console.log('Playlist content:', playlistText);
+                .then(function(result) {
+                    var playlistText = result.body;
                     
-                    // Parse M3U playlist and collect ALL stream URLs
-                    var lines = playlistText.split('\n');
-                    var streamUrls = [];
-                    
-                    for (var i = 0; i < lines.length; i++) {
-                        var line = lines[i].trim();
-                        // Skip comments and empty lines
-                        if (line && !line.startsWith('#')) {
-                            streamUrls.push(line);
-                        }
+                    // The proxy explains playlist failures rather than
+                    // passing an error page down the chain, so report what
+                    // it said instead of a misleading audio-format error.
+                    if (!result.ok || playlistText.indexOf('MBR_PLAYLIST_ERROR') === 0) {
+                        console.error('MBR: playlist could not be fetched —', playlistText);
+                        if (statusEl) { statusEl.textContent = 'Playlist unavailable'; }
+                        return;
                     }
                     
-                    if (streamUrls.length > 0) {
-                        // Try the first stream URL (or second if available, as it might be better quality)
-                        // Shoutcast often lists multiple quality options
-                        actualStreamUrl = streamUrls.length > 1 ? streamUrls[1] : streamUrls[0];
-                        console.log('Found ' + streamUrls.length + ' stream URL(s), using:', actualStreamUrl);
-                        if (streamUrls.length > 1) {
-                            console.log('Alternative streams available:', streamUrls);
-                        }
-                        
-                        // Fix Shoutcast URLs that might be pointing to server root
-                        actualStreamUrl = fixShoutcastUrl(actualStreamUrl);
-                        console.log('After Shoutcast fix:', actualStreamUrl);
-                        
-                        // Store the actual stream URL for metadata polling (without proxy)
-                        var metadataStreamUrl = actualStreamUrl;
-                        
-                        // Check if we need to proxy the actual stream URL
-                        // Only proxy HTTP streams when the page is HTTPS
-                        if (proxyEnabled && actualStreamUrl.indexOf('http://') === 0 && pageIsHttps && proxyUrl) {
-                            actualStreamUrl = proxyUrl + 'url=' + encodeURIComponent(actualStreamUrl);
-                            console.log('Using proxy for stream:', actualStreamUrl);
-                        }
-                        
-                        audio.src = actualStreamUrl;
-                        actualStreamUrl = metadataStreamUrl; // Use non-proxied URL for metadata
-                        initializeAudioPlayer();
+                    var streamUrls = parsePlaylist(playlistText);
+                    
+                    if (!streamUrls.length) {
+                        console.error('MBR: no stream URL found in playlist. First 300 characters of the response:\n' + playlistText.slice(0, 300));
+                        if (statusEl) { statusEl.textContent = 'Invalid playlist'; }
+                        return;
+                    }
+                    
+                    // The first entry is the station's primary server.
+                    // Later entries are failover mirrors, not better
+                    // quality; picking entry two on any multi-entry
+                    // playlist, as this used to, was arbitrary.
+                    var resolved = streamUrls[0];
+                    console.log('Found ' + streamUrls.length + ' stream URL(s), using:', resolved);
+                    
+                    // Protocol-relative entries inherit the playlist's scheme
+                    if (resolved.indexOf('//') === 0) {
+                        resolved = (originalUrl.indexOf('https://') === 0 ? 'https:' : 'http:') + resolved;
+                    }
+                    
+                    // A playlist pointing at another playlist
+                    if (isPlaylistUrl(resolved) && depth < 2) {
+                        console.log('Playlist points at another playlist, following it');
+                        var nextFetch = (proxyEnabled && proxyUrl)
+                            ? proxyUrl + 'playlist=1&url=' + encodeURIComponent(resolved)
+                            : resolved;
+                        resolvePlaylist(nextFetch, resolved, depth + 1, onResolved);
+                        return;
+                    }
+                    
+                    // Fix Shoutcast URLs that might be pointing to server root
+                    resolved = fixShoutcastUrl(resolved);
+                    console.log('After Shoutcast fix:', resolved);
+                    
+                    // Metadata polls the real stream URL, never the proxied one
+                    actualStreamUrl = resolved;
+                    rawStreamUrl    = resolved;
+                    proxyRetryTried = false;
+                    
+                    var playbackUrl = resolveStreamSrc(resolved);
+                    if (playbackUrl !== resolved) {
+                        console.log('Using proxy for stream:', resolved);
+                    }
+                    
+                    audio.src = playbackUrl;
+                    
+                    if (typeof onResolved === 'function') {
+                        // Re-resolve after a failure: controls and listeners
+                        // are already wired up, so only the source changes.
+                        onResolved(playbackUrl);
                     } else {
-                        console.error('Could not find stream URL in playlist');
-                        playerElement.querySelector('.mbr-status-text').textContent = 'Invalid playlist';
+                        initializeAudioPlayer();
                     }
                 })
                 .catch(function(error) {
                     console.error('Failed to fetch playlist:', error);
                     playerElement.querySelector('.mbr-status-text').textContent = 'Playlist error';
                 });
+        }
+        
+        // Check if stream is a playlist that needs parsing (.m3u or .pls)
+        if (isPlaylistUrl(streamUrl)) {
+            console.log('Detected playlist, fetching actual stream URL...');
+            
+            // Playlist fetches always go through the proxy when it is enabled,
+            // whatever the schemes involved. This is an XHR rather than an
+            // <audio> load, so it is subject to CORS -- and station directories
+            // do not send Access-Control-Allow-Origin. Fetching direct worked
+            // only by accident on HTTPS pages, where the proxy was already
+            // being used for the mixed-content reason.
+            var playlistFetchUrl = (proxyEnabled && proxyUrl)
+                ? proxyUrl + 'playlist=1&url=' + encodeURIComponent(streamUrl)
+                : streamUrl;
+            
+            resolvePlaylist(playlistFetchUrl, streamUrl, 0);
+            
                 
             // We'll initialize the player after getting the actual URL
             return;
@@ -516,6 +666,7 @@
             // Standard audio stream (MP3, AAC, etc.)
             console.log('Using standard audio for:', streamUrl);
             console.log('Final URL (may be proxied):', finalStreamUrl);
+            rawStreamUrl = streamUrl;
             audio.src = finalStreamUrl;
         }
         
@@ -527,7 +678,7 @@
          */
         function buildHlsInstance(sourceUrl) {
             var _baseDir = sourceUrl.substring(0, sourceUrl.lastIndexOf('/') + 1);
-            var urlNeedsProxy = proxyEnabled && proxyUrl && sourceUrl.indexOf('http://') === 0 && pageIsHttps;
+            var urlNeedsProxy = shouldProxyUrl(sourceUrl);
             
             var instanceConfig = {
                 maxBufferLength: 10,
@@ -572,7 +723,7 @@
                                             var t = line.trim();
                                             if (t && t.charAt(0) !== '#' && t.indexOf('.ts') !== -1 && !isProxied(t)) {
                                                 var abs = /^https?:\/\//i.test(t) ? t : _bd + t;
-                                                if (abs.indexOf('http://') === 0) {
+                                                if (shouldProxyUrl(abs)) {
                                                     var proxied = _proxyUrl + 'url=' + encodeURIComponent(abs);
                                                     console.log('Rewrote segment:', t, '->', proxied);
                                                     return proxied;
@@ -590,7 +741,7 @@
                             };
                         }
                         
-                        if (url && url.indexOf('http://') === 0) {
+                        if (shouldProxyUrl(url)) {
                             context.url = _proxyUrl + 'url=' + encodeURIComponent(url);
                             console.log('Proxying:', url, '->', context.url);
                             if (isManifest) callbacks = wrapManifestCallbacks(callbacks);
@@ -815,6 +966,62 @@
         audio.addEventListener('error', function(e) {
             playerElement.classList.remove('loading', 'playing');
             isPlaying = false;
+            
+            // Before reporting a failure, try once through the proxy.
+            //
+            // A browser refuses a stream it could otherwise play for two
+            // routine reasons: the station labels its audio with a
+            // Content-Type the browser will not accept (audio/aacp and the
+            // other AAC spellings are the usual culprits), or it sends no CORS
+            // headers on a cross-origin request. The proxy fixes both -- it
+            // normalises the Content-Type and serves from this origin -- so a
+            // station that fails outright direct will very often play
+            // perfectly proxied. One attempt only, and never for a URL that is
+            // already proxied.
+            var code = audio.error ? audio.error.code : 0;
+            var worthRetrying = (code === 4 /* SRC_NOT_SUPPORTED */ || code === 3 /* DECODE */ || code === 2 /* NETWORK */);
+            
+            // A stream that came from a playlist gets one fresh resolve first:
+            // an expired session key looks exactly like a broken stream, and
+            // re-fetching the playlist mints a new one.
+            if (worthRetrying && playlistSourceUrl && !playlistRetryTried) {
+                playlistRetryTried = true;
+                proxyRetryTried = false;
+                console.warn('MBR: playback failed (code ' + code + ') — re-resolving the playlist for a fresh stream URL');
+                statusText.textContent = 'Reconnecting...';
+                playerElement.classList.add('loading');
+                var refetchUrl = (proxyEnabled && proxyUrl)
+                    ? proxyUrl + 'playlist=1&url=' + encodeURIComponent(playlistSourceUrl)
+                    : playlistSourceUrl;
+                resolvePlaylist(refetchUrl, playlistSourceUrl, 0, function() {
+                    audio.load();
+                    if (!userPaused) {
+                        audio.play().catch(function(err) {
+                            console.error('MBR: playback failed after re-resolving the playlist', err);
+                            playerElement.classList.remove('loading');
+                        });
+                    }
+                });
+                return;
+            }
+            
+            if (worthRetrying && !proxyRetryTried && proxyEnabled && proxyUrl && rawStreamUrl &&
+                !isProxiedUrl(audio.src) && /^https?:\/\//i.test(rawStreamUrl) &&
+                !hls && rawStreamUrl.indexOf('.m3u8') === -1) {
+                proxyRetryTried = true;
+                console.warn('MBR: direct playback failed (code ' + code + ') — retrying through the proxy');
+                statusText.textContent = 'Reconnecting...';
+                playerElement.classList.add('loading');
+                audio.src = proxifyUrl(rawStreamUrl);
+                audio.load();
+                if (!userPaused) {
+                    audio.play().catch(function(err) {
+                        console.error('MBR: proxy retry failed', err);
+                        playerElement.classList.remove('loading');
+                    });
+                }
+                return;
+            }
             
             // Check error type
             var errorMessage = 'Error loading stream';
@@ -1320,34 +1527,32 @@
                     function loadAndPlayStream(rawUrl) {
                         playerElement.classList.add('loading');
                         
-                        // Path 1: M3U playlist — fetch and resolve to real URL first
-                        if (rawUrl.indexOf('.m3u') !== -1 && rawUrl.indexOf('.m3u8') === -1) {
-                            var playlistFetchUrl = rawUrl;
-                            if (proxyEnabled && rawUrl.indexOf('http://') === 0 && pageIsHttps && proxyUrl) {
-                                playlistFetchUrl = proxyUrl + 'playlist=1&url=' + encodeURIComponent(rawUrl);
-                            }
+                        // Reset the per-stream retry state for the new station
+                        playlistSourceUrl  = isPlaylistUrl(rawUrl) ? rawUrl : '';
+                        playlistRetryTried = false;
+                        proxyRetryTried    = false;
+                        
+                        // Path 1: M3U or PLS playlist — resolve to a real URL first
+                        if (isPlaylistUrl(rawUrl)) {
+                            var playlistFetchUrl = (proxyEnabled && proxyUrl)
+                                ? proxyUrl + 'playlist=1&url=' + encodeURIComponent(rawUrl)
+                                : rawUrl;
                             fetch(playlistFetchUrl)
                                 .then(function(r) { return r.text(); })
                                 .then(function(text) {
-                                    var lines = text.split('\n');
-                                    var urls  = [];
-                                    for (var i = 0; i < lines.length; i++) {
-                                        var l = lines[i].trim();
-                                        if (l && l.charAt(0) !== '#') urls.push(l);
-                                    }
+                                    var urls = parsePlaylist(text);
                                     if (!urls.length) {
                                         playerElement.classList.remove('loading');
                                         var se = playerElement.querySelector('.mbr-status-text');
                                         if (se) se.textContent = 'Playlist error';
                                         return;
                                     }
-                                    var resolved = fixShoutcastUrl(urls.length > 1 ? urls[1] : urls[0]);
+                                    var resolved = fixShoutcastUrl(urls[0]);
                                     // Update actualStreamUrl so metadata polls the right station
                                     actualStreamUrl = resolved;
-                                    var src = (proxyEnabled && resolved.indexOf('http://') === 0 && pageIsHttps && proxyUrl)
-                                        ? proxyUrl + 'url=' + encodeURIComponent(resolved)
-                                        : resolved;
-                                    audio.src = src;
+                                    rawStreamUrl = resolved;
+                                    proxyRetryTried = false;
+                                    audio.src = resolveStreamSrc(resolved);
                                     audio.play().catch(function(err) {
                                         console.error('MBR: Station switch (m3u) playback error', err);
                                         playerElement.classList.remove('loading');
@@ -1416,10 +1621,9 @@
                         // Path 3: Direct MP3/AAC
                         // Update actualStreamUrl for metadata polling
                         actualStreamUrl = rawUrl;
-                        var src = (proxyEnabled && proxyUrl && rawUrl.indexOf('http://') === 0 && pageIsHttps)
-                            ? proxyUrl + 'url=' + encodeURIComponent(rawUrl)
-                            : rawUrl;
-                        audio.src = src;
+                        rawStreamUrl = rawUrl;
+                        proxyRetryTried = false;
+                        audio.src = resolveStreamSrc(rawUrl);
                         audio.play().catch(function(err) {
                             console.error('MBR: Station switch (direct) playback error', err);
                             playerElement.classList.remove('loading');

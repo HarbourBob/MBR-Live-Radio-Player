@@ -15,6 +15,18 @@ if ( file_exists( $wp_load_path ) ) {
     require_once( $wp_load_path );
 }
 
+// URL validation is shared with includes/class-proxy.php so this endpoint and
+// the stream proxy cannot end up with different ideas about what is safe. The
+// validator is written to run under SHORTINIT, which is how this file is
+// loaded when it is requested directly.
+if ( ! defined( 'ABSPATH' ) ) {
+    // Requested without a WordPress bootstrap: nothing here can run safely.
+    http_response_code( 500 );
+    exit;
+}
+
+require_once __DIR__ . '/includes/class-url-validator.php';
+
 // Check if proxy is enabled
 $proxy_enabled = get_option( 'mbr_lrp_proxy_enabled', '1' );
 if ( $proxy_enabled !== '1' ) {
@@ -45,101 +57,36 @@ if ( empty( $stream_url ) ) {
     exit;
 }
 
-// Enhanced SSRF protection
-function mbr_validate_metadata_url( $url ) {
-    $parsed = parse_url( $url );
-    
-    if ( ! $parsed || ! isset( $parsed['scheme'] ) || ! isset( $parsed['host'] ) ) {
-        return false;
-    }
-    
-    // Only HTTP/HTTPS
-    if ( ! in_array( $parsed['scheme'], array( 'http', 'https' ), true ) ) {
-        return false;
-    }
-    
-    $host = strtolower( $parsed['host'] );
-    
-    // Block localhost variations
-    $blocked_hosts = array( 'localhost', '127.0.0.1', '::1', '0.0.0.0', 'metadata.google.internal', '169.254.169.254' );
-    if ( in_array( $host, $blocked_hosts, true ) ) {
-        return false;
-    }
-    
-    // Check IPv4 private ranges
-    if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
-        if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) === false ) {
-            return false;
-        }
-    }
-    
-    // Check IPv6 private ranges
-    if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
-        $hex = bin2hex( @inet_pton( $host ) );
-        if ( $hex && ( substr( $hex, 0, 2 ) === 'fc' || substr( $hex, 0, 2 ) === 'fd' ||
-                       substr( $hex, 0, 3 ) === 'fe8' || substr( $hex, 0, 3 ) === 'fe9' ||
-                       substr( $hex, 0, 3 ) === 'fea' || substr( $hex, 0, 3 ) === 'feb' ) ) {
-            return false;
-        }
-    }
-    
-    // For hostnames, check DNS resolution
-    if ( ! filter_var( $host, FILTER_VALIDATE_IP ) ) {
-        $ips = @gethostbynamel( $host );
-        if ( $ips === false || empty( $ips ) ) {
-            return false;
-        }
-        
-        foreach ( $ips as $ip ) {
-            if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
-                if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) === false ) {
-                    return false;
-                }
-            }
-        }
-    }
-    
-    // Restrict ports
-    if ( isset( $parsed['port'] ) ) {
-        $allowed_ports = array( 80, 443, 8000, 8080, 8443, 8888, 9000 );
-        if ( ! in_array( (int) $parsed['port'], $allowed_ports, true ) ) {
-            return false;
-        }
-    }
-    
-    return true;
+/**
+ * SSRF validation for this endpoint.
+ *
+ * Delegates to MBR_LRP_URL_Validator so there is one implementation rather
+ * than two. The copy that used to live here was the weaker of the pair: it
+ * only pattern-matched a handful of IPv6 prefixes rather than validating
+ * properly, resolved IPv4 records alone, and allowed a seven-entry list of
+ * ports that excluded most Shoutcast and Icecast mounts -- which is why
+ * stations on ports such as 8010 or 8030 never showed now-playing text.
+ *
+ * @param string     $url        URL to check.
+ * @param array|null $pinned_ips Filled with the addresses it resolved to.
+ * @return bool
+ */
+function mbr_validate_metadata_url( $url, &$pinned_ips = null ) {
+    return MBR_LRP_URL_Validator::validate( $url, $pinned_ips );
 }
 
 /**
  * Resolve a relative Location header against the URL that produced it.
  */
 function mbr_metadata_absolute_url( $base, $relative ) {
-    if ( preg_match( '#^https?://#i', $relative ) ) {
-        return $relative;
-    }
-
-    $parts = parse_url( $base );
-    if ( ! $parts || ! isset( $parts['scheme'], $parts['host'] ) ) {
-        return false;
-    }
-
-    $origin = $parts['scheme'] . '://' . $parts['host']
-        . ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' );
-
-    if ( strpos( $relative, '//' ) === 0 ) {
-        return $parts['scheme'] . ':' . $relative;
-    }
-
-    if ( strpos( $relative, '/' ) === 0 ) {
-        return $origin . $relative;
-    }
-
-    $dir = isset( $parts['path'] ) ? rtrim( dirname( $parts['path'] ), '/' ) : '';
-    return $origin . $dir . '/' . $relative;
+    return MBR_LRP_URL_Validator::absolute_url( $base, $relative );
 }
 
-// Validate URL
-if ( ! mbr_validate_metadata_url( $stream_url ) ) {
+// Validate URL, keeping the addresses it resolved to so the request can be
+// pinned to them rather than trusting a second DNS lookup.
+$validated_ips = array();
+
+if ( ! mbr_validate_metadata_url( $stream_url, $validated_ips ) ) {
     http_response_code( 403 );
     header( 'Content-Type: application/json' );
     echo json_encode( array(
@@ -209,6 +156,11 @@ curl_setopt( $ch, CURLOPT_TIMEOUT, 15 );
 curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 10 );
 curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
 curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
+
+// Bind the connection to the addresses that passed validation. The hostname
+// is still used for the Host header, TLS SNI and certificate checking, so
+// this closes the DNS-rebinding window without weakening TLS.
+MBR_LRP_URL_Validator::pin_curl_handle( $ch, $request_url, $validated_ips );
 
 // Variables for metadata extraction
 $icy_metaint = 0;
@@ -303,7 +255,7 @@ curl_close( $ch );
 if ( $http_code >= 300 && $http_code < 400 && $redirect_target !== '' && $redirect_hops < 5 ) {
     $next = mbr_metadata_absolute_url( $request_url, $redirect_target );
 
-    if ( $next !== false && mbr_validate_metadata_url( $next ) ) {
+    if ( $next !== false && mbr_validate_metadata_url( $next, $validated_ips ) ) {
         $redirect_hops++;
         $request_url = $next;
 
