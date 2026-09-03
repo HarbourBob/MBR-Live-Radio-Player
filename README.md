@@ -18,7 +18,7 @@ Most WordPress audio players look like they were designed in 2009. This one does
 
 No subscriptions. No "pro" tier waiting in the wings. No data harvesting. Built by one developer in Cleethorpes, UK, who just wanted radio streaming that works.
 
-**[⬇️ Download v3.12.7](https://littlewebshack.com/downloads/radio-player/mbr-live-radio-player-3.12.7.zip)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
+**[⬇️ Download v3.12.7](https://littlewebshack.com/?mbr_dl=06bf079048c3beb9)** · **[📖 User Guide (PDF)](https://github.com/HarbourBob/MBR-Live-Radio-Player/blob/main/MBR-Live-Radio-Player-User-Guide-3.12.7.pdf)** · **[🌐 littlewebshack.com](https://littlewebshack.com)** · **[👨‍💻 madebyrobert.co.uk](https://madebyrobert.co.uk)**
 
 ---
 
